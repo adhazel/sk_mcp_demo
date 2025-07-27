@@ -9,14 +9,21 @@ license = {text = "mit"}
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "python-dotenv (>=1.1.1,<2.0.0)"
+    "python-dotenv (>=1.1.1,<2.0.0)",
+    "chromadb (>=1.0.15,<2.0.0)",
+    "openai (>=1.97.1,<2.0.0)" # Required by chromadb for embedding functions
 ]
 
+[tool.poetry]
+packages = [{include = "src"}]
+
+[tool.poetry.group.dev.dependencies]
+jupyter = "^1.0.0"
+jupyterlab = "^4.0.0"
+ipykernel = "^6.25.0"
 
 [tool.poetry.scripts]
 start = "src.main:main"
-dev = "src.main:main_dev"
-prod = "src.main:main_prod"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
