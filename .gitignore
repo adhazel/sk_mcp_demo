@@ -1,6 +1,9 @@
 # allow for a local ignore folder
 ignore_me/
+**/ignore_me/
 
+# chroma
+data/chroma_db/*/**
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

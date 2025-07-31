@@ -15,22 +15,42 @@ If you're a developer looking to move from experimentation to real-world AI appl
 
 # Project Structure Overview
 
-This project includes both backend and frontend components:
+This project includes backend, frontend, and MCP server components:
 
 - **src**: All backend capabilities. Python-based services using FastAPI, Semantic Kernel, and agentic AI patterns. Handles chat orchestration, product data, evaluation, and integrations.
+- **mcp_rag**: Standalone Model Context Protocol (MCP) server for RAG operations. Provides remote access to vector database operations and product data retrieval.
 - **Frontend**: React-based web application for user interaction, chat UI, and trust score visualization.
 
-Below is a high-level directory structure for both backend and frontend codebases.
+Below is a high-level directory structure for backend, MCP server, and frontend codebases.
 
 ```
 ├── pyproject.toml                # Poetry configuration
 ├── README.md
 ├── .env.local                    # Local environment variables
 ├── data/                         # ChromaDB and other data storage
-│   └── local_chroma_db/         # Local ChromaDB instance
+│   └── product_chroma_db/        # ChromaDB instance storing product information
+│   └── names_chroma_db/          # ChromaDB instance storing names
 ├── notebooks/                    # Jupyter notebooks for development
 │   ├── nb_quick_start.ipynb
 │   └── notebook_utils.py
+│   └── other notebooks
+├── mcp_rag/                      # MCP Server for RAG operations
+│   ├── pyproject.toml           # MCP server dependencies
+│   ├── README.md                # MCP server documentation
+│   ├── src/
+│   │   ├── __init__.py
+│   │   ├── server.py            # Main MCP server implementation
+│   │   ├── tools/
+│   │   │   ├── __init__.py
+│   │   │   ├── vector_tools.py  # Vector database tools
+│   │   │   └── product_tools.py # Product data tools
+│   │   ├── handlers/
+│   │   │   ├── __init__.py
+│   │   │   ├── search_handler.py # Search request handlers
+│   │   │   └── data_handler.py  # Data management handlers
+│   │   └── config/
+│   │       ├── __init__.py
+│   │       └── mcp_config.py    # MCP server configuration
 ├── src/
 │   ├── __init__.py
 │   ├── main.py                   # Entry point selector (CLI/API)
