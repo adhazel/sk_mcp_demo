@@ -1,0 +1,211 @@
+"""
+RAG Response Evaluation Tools
+
+This module provides comprehensive evaluation capabilities for RAG (Retrieval-Augmented Generation) responses:
+- Accuracy scoring based on context support
+- Hallucination detection
+- Claim-by-claim analysis
+- Confidence assessment
+
+INTEGRATION WITH RAG GENERATOR:
+
+The RAGEvaluator is designed to work seamlessly with RAGResponseGenerator responses.
+It now works directly with SearchResults objects for better type safety and consistency.
+
+Example Usage:
+```python
+from src.tools.rag_evaluator import RAGEvaluator
+from src.tools.rag_generator import RAGResponseGenerator
+from src.utils.mcp_config import Config
+
+# Initialize
+config = Config(environment="local")
+rag_generator = RAGResponseGenerator(config=config)
+rag_evaluator = RAGEvaluator(config=config)
+
+# Generate and evaluate
+rag_response = await rag_generator.generate_chat_response("What products are available?")
+
+# Method 1: Direct evaluation with RAG response
+evaluation = await rag_evaluator.evaluate_rag_response(rag_response)
+
+# Method 2: Manual evaluation with SearchResults objects
+evaluation = await rag_evaluator.evaluate_rag_accuracy(
+    user_query="What products are available?",
+    internal_context=internal_search_results,
+    external_context=external_search_results, 
+    answer="Generated response..."
+)
+```
+"""
+import logging
+from typing import List, Dict, Any
+from openai import AzureOpenAI
+from pydantic import BaseModel, Field
+from src.utils.mcp_config import Config
+
+
+logger = logging.getLogger(__name__)
+
+# TODO: Consolidate models into a model folder
+
+class SearchResult(BaseModel):
+    """Model for search result"""
+    query: str
+    content: str
+    citation: str
+    metadata: Dict[str, Any]
+    content_id: int = -1
+    search_order: int = -1
+    source_type: str = "external"  # Default source type for web search
+    source_type: str = "external"  # Default source type for web search
+
+class SearchResults(BaseModel):
+    """Model for search results"""
+    queries: List[SearchResult] = Field(default_factory=list)
+    
+    def __len__(self) -> int:
+        """Return the number of search results"""
+        return len(self.queries)
+    
+    def to_dict(self) -> List[Dict[str, Any]]:
+        """Convert SearchResults to dictionary format for backward compatibility"""
+        return [
+            {
+                "query": result.query,
+                "content": result.content,
+                "citation": result.citation,
+                "metadata": result.metadata,
+                "content_id": result.content_id,
+                "search_order": result.search_order,
+                "source_type": result.source_type
+            }
+            for result in self.queries
+        ]
+    
+    def to_list(self) -> List[Dict[str, Any]]:
+        """Alias for to_dict() for clearer intent"""
+        return self.to_dict()
+    
+
+class EvaluationResult(BaseModel):
+    """Model for evaluation results with structured output constraints"""
+    accuracy_score: float = Field(..., ge=0.0, le=1.0, description="Float between 0.0 and 1.0 indicating how well the answer is supported by context")
+    is_hallucination: bool = Field(..., description="True if answer contains information not supported by context")
+    evaluation_reasoning: str = Field(..., description="Explanation of the evaluation decision")
+    supported_claims: List[str] = Field(..., description="Claims from the answer that are supported by context")
+    unsupported_claims: List[str] = Field(..., description="Claims from the answer that are NOT supported by context")
+    confidence_level: str = Field(..., description="Confidence in this evaluation", pattern="^(Low|Medium|High)$")
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert EvaluationResult to dictionary format"""
+        return {
+            "accuracy_score": self.accuracy_score,
+            "is_hallucination": self.is_hallucination,
+            "evaluation_reasoning": self.evaluation_reasoning,
+            "supported_claims": self.supported_claims,
+            "unsupported_claims": self.unsupported_claims,
+            "confidence_level": self.confidence_level
+        }
+
+class RAGEvaluator:
+    """Evaluate RAG response accuracy and detect hallucinations"""
+    
+    def __init__(self, config: Config):
+        self.config = config
+        self.aoai_client = AzureOpenAI(
+            api_key=config.azure_openai_api_key,
+            api_version=config.azure_openai_api_version,
+            azure_endpoint=config.azure_openai_endpoint
+        )
+
+    async def evaluate_rag_accuracy(
+        self,
+        user_query: str,
+        answer: str,
+        formatted_context: str = "",
+    ) -> Dict[str, Any]:
+        """
+        Evaluate if RAG response is supported by retrieved context
+        
+        Args:
+            user_query: Original user question
+            formatted_context: Context string that was provided to the RAG generator
+            answer: Generated RAG response to evaluate
+
+        Returns:
+            Dictionary with detailed evaluation results
+        """
+        try:
+            # Create evaluation prompt
+            evaluation_prompt = f"""You are an expert fact-checker evaluating the accuracy of an AI-generated response.
+
+Your task is to determine if the given ANSWER is supported by the provided CONTEXT.
+
+USER QUESTION: {user_query}
+
+CONTEXT:
+{formatted_context}
+
+AI GENERATED ANSWER: {answer}
+
+Please evaluate the answer using the following criteria:
+
+1. accuracy_score: A float between 0.0 and 1.0 (0.0 = completely unsupported, 1.0 = fully supported)
+2. is_hallucination: Boolean (true if answer contains information not supported by context)  
+3. evaluation_reasoning: String explaining your evaluation
+4. supported_claims: Array of claims from the answer that are supported by context
+5. unsupported_claims: Array of claims from the answer that are NOT supported by context
+6. confidence_level: String ("Low", "Medium", "High") indicating your confidence in this evaluation
+
+Evaluation Criteria:
+- Claims must be directly supported by the provided context
+- Reasonable inferences are acceptable if clearly based on context
+- General knowledge claims should be marked as unsupported unless found in context
+- Consider both factual accuracy and completeness"""
+
+            messages = [
+                {"role": "system", "content": "You are a precise fact-checking assistant that evaluates AI-generated responses against provided context."},
+                {"role": "user", "content": evaluation_prompt}
+            ]
+            
+            response = self.aoai_client.beta.chat.completions.parse(
+                model=self.config.azure_openai_deployment,
+                messages=messages,
+                response_format=EvaluationResult,
+                max_tokens=4000,
+                temperature=0.1  # Low temperature for consistent evaluation
+            )
+            
+            # Extract the parsed structured output
+            evaluation_result = response.choices[0].message.parsed
+            evaluation_data_dict = evaluation_result.to_dict()
+            
+            return {
+                "user_query": user_query,
+                "answer": answer,
+                "evaluation": evaluation_data_dict
+            }
+            
+        except Exception as e:
+            logger.error(f"Error evaluating RAG accuracy: {e}")
+
+    async def evaluate_rag_generator(
+        self,
+        generated_rag_response: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        A helper function that takes the RAG response and passes it to the evaluate_rag_accuracy function.
+
+        Args:
+            generated_rag_response: The object returned by the rag_generator.generate_chat_response method.
+
+        Returns:
+            Dictionary with detailed evaluation results
+        """
+        return await self.evaluate_rag_accuracy(
+            user_query=generated_rag_response.get("user_query", ""),
+            answer=generated_rag_response.get("response", ""),
+            formatted_context=generated_rag_response.get("formatted_context", "")
+        )
+    

@@ -20,6 +20,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from .caller import get_caller
 import logging
+from  openai import AzureOpenAI, OpenAI
 
 def load_environment(env: str = "local", project_name: str = "mcp_rag"):
     """Load environment variables based on environment."""
@@ -155,7 +156,39 @@ class Config:
             logging.error(f"📝 Create .env.{self.environment} file with these variables")
         else:
             logging.info(f"✅ All required configuration loaded for '{self.environment}' environment")
-    
+    def get_llm(self):
+        """
+        Get the configured LLM client based on the environment.
+        
+        Returns:
+            An instance of the configured LLM client.
+            
+        Raises:
+            ValueError: If required configuration is missing.
+        """
+        if self.openai_api_type.lower() == "azure":
+            # Validate required Azure OpenAI parameters
+            if not self.azure_openai_api_key:
+                raise ValueError("AZURE_OPENAI_API_KEY is required for Azure OpenAI")
+            if not self.azure_openai_endpoint:
+                raise ValueError("AZURE_OPENAI_ENDPOINT is required for Azure OpenAI")
+            if not self.azure_openai_api_version:
+                raise ValueError("AZURE_OPENAI_API_VERSION is required for Azure OpenAI")
+                
+            return AzureOpenAI(
+                api_key=self.azure_openai_api_key,
+                azure_endpoint=self.azure_openai_endpoint,
+                api_version=self.azure_openai_api_version
+            )
+        else:
+            # Validate required OpenAI parameters
+            if not self.openai_api_key:
+                raise ValueError("OPENAI_API_KEY is required for OpenAI")
+                
+            return OpenAI(
+                api_key=self.openai_api_key
+            )
+        
     def __repr__(self):
         """String representation for debugging."""
         return (
