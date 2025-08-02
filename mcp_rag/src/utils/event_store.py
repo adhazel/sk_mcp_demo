@@ -1,9 +1,14 @@
 """
-In-memory event store for demonstrating resumability functionality.
+NAME: event_store.py
+DESCRIPTION: In-memory event store for demonstration purposes.
 
-This is a simple implementation intended for examples and testing,
-not for production use where a persistent storage solution would be more appropriate.
+AUTHOR: April Hazel
+CREDIT: Derived from: 
+    https://github.com/modelcontextprotocol/python-sdk/blob/959d4e39ae13e45d3059ec6d6ca82fb231039a91/examples/servers/simple-streamablehttp/mcp_simple_streamablehttp/event_store.py
+HISTORY:
+    - 20240730: Initial implementation
 """
+
 
 import logging
 import time

@@ -2,7 +2,12 @@
 NAME: server_phase2.py
 DESCRIPTION: This file implements a demo server using the Model Context Protocol (MCP) with streamable HTTP support. It uses mcp.server.fastmcp.FastMCP for the server implementation and session handling with an in-memory event store for resumability. The server provides tools and resources, including debugging tools to inspect stored events.
 
-This server definition is phase 1 in a multi-phase tutorial series. This phase focuses on setting up the server and basic instrumentation, such as logging and event storage.
+This server definition is phase 2 in a multi-phase tutorial series. This phase focuses on adding capabilities for the demonstration scenario:
+
+- Search Chroma DB for internal product information
+- Search SerpAPI Bing for external web results
+- Generate an LLM response based on the search results (RAG)
+- Evaluate the LLM response using a custom evaluation tool
 
 AUTHOR: April Hazel
 CREDIT: Derived from: 
@@ -16,7 +21,7 @@ from src.utils import mcp_config as config
 from src.utils.event_store import InMemoryEventStore
 
 # Load environment variables
-config = config.Config(environment="local", project_name="mcp_rag")
+config = config.Config(environment="local")
 
 # Configure logging
 logging.basicConfig(level=getattr(logging, config.log_level.upper(), logging.INFO))
@@ -83,11 +88,7 @@ async def debug_event_details(count: int) -> object:
 # Add business resources, prompts, and tools
 ##################################################
 
-# Add an addition tool
-@mcp.tool()
-async def add(a: int, b: int) -> int:
-    """Add two numbers"""
-    return a + b
+
 
 # Add a static resource
 @mcp.resource("info://server")

@@ -25,7 +25,7 @@ def main_api():
         return
     
     env = os.getenv("ENVIRONMENT", "local")
-    config = Config(environment=env)
+    config = Config(environment=env, project_name="sk_mcp_demo")
     
     app = create_app(config)
     

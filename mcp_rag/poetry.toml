@@ -1,2 +1,5 @@
 [virtualenvs]
 in-project = true
+
+[tool.ruff]
+ignore = ["E402"]

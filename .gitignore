@@ -3,7 +3,7 @@ ignore_me/
 **/ignore_me/
 
 # chroma
-data/chroma_db/*/**
+mcp_rag/data/chroma_db/*/**
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
