@@ -3,7 +3,7 @@ ignore_me/
 **/ignore_me/
 
 # chroma
-mcp_rag/data/chroma_db/*/**
+/**/data/chroma_db/*/**
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -215,3 +215,4 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 
+mcp_rag/data/chroma_db/chroma.sqlite3

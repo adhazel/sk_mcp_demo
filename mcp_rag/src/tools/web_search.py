@@ -281,7 +281,7 @@ Should we search the web for additional information or is the internal context f
         try:
             params = {
                 "engine": "bing",
-                "q": f"{query} -site:ell.stackexchange.com -site:www.tenforums.com",
+                "q": f"{query} -site:ell.stackexchange.com -site:www.tenforums.com -site:https://ell.stackexchange.com -site:https://myaccount.mcafee.com/",
                 "api_key": self.config.serp_api_key,
                 "mkt": "en-us",
                 "cc": "US", 
