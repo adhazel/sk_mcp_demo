@@ -86,7 +86,7 @@ async def test_components():
         start = time.time()
         print("❔⌛ Generating web queries test...")
         web_searcher = WebSearcher(config)
-        generated_queries = await web_searcher.get_web_search_queries(user_query="hiking", internal_context=chroma_results)
+        generated_queries = await web_searcher._get_web_search_queries(user_query="hiking", internal_context=chroma_results)
         elapsed = time.time() - start
         print(f"❔✅ Generating web queries succeeded: {len(generated_queries)} queries (Time: {elapsed:.2f}s)")
     except Exception as e:
@@ -98,9 +98,10 @@ async def test_components():
         print("🌐⌛ Web searching in progress ...")
         web_searcher = WebSearcher(config)
         web_searcher_results = await web_searcher.search_serpapi_bing_with_generated_queries(
-            generated_queries=generated_queries, 
-            n_results=2
-            )
+            user_query="hiking",
+            internal_context=chroma_results,
+            n_results_per_search=3
+        )
         elapsed = time.time() - start
         print(f"🌐✅ Web searches performed: {len(web_searcher_results)} searches (Time: {elapsed:.2f}s)")
     except Exception as e:

@@ -44,7 +44,7 @@ class RAGResponseGenerator:
             self._rag_evaluator = RAGEvaluator(self.config)
         return self._rag_evaluator
 
-    def format_context_for_llm(self, context: List[Dict[str, Any]]) -> str:
+    def format_context_for_llm(self, context: List[Dict[str, Any]] = None) -> str:
         """Format search results for the AI to use."""
         # TODO: This is repeated in rag_generator.py, consider refactoring
         formatted_context = ""
@@ -120,25 +120,15 @@ CONTEXT:"""
             )
             logger.info(f"1️⃣ Internal search found {len(internal_context)} results")
             
-            # Step 2: Generate web search queries
-            generated_queries = await self.web_searcher.get_web_search_queries(
+            # Step 2: Perform web searches (generates queries internally)
+            external_context = await self.web_searcher.search_serpapi_bing_with_generated_queries(
                 user_query=user_query,
-                internal_context=internal_context
+                internal_context=internal_context,
+                n_results_per_search=n_web_results
             )
-            logger.info(f"2️⃣ Generated {len(generated_queries) if generated_queries else 0} web queries")
-
-            # Step 3: Perform web searches
-            external_context = []
-            if len(generated_queries) > 0:
-                external_context = await self.web_searcher.search_serpapi_bing_with_generated_queries(
-                    generated_queries=generated_queries,
-                    n_results=n_web_results
-                )
-                logger.info(f"3️⃣ External search results found {len(external_context)}")
-            else:
-                logger.info("3️⃣ No intelligent web queries generated - skipping external search")
+            logger.info(f"2️⃣ External search results found {len(external_context)}")
             
-            # Step 4: Combine and format context
+            # Step 3: Combine and format context
             combined_context = self.combine_search_results_to_list([internal_context, external_context])
             formatted_context = self.format_context_for_llm(combined_context)
             logger.info(f"4️⃣ Formatted context for LLM:\n{formatted_context[:200]}...")

@@ -140,10 +140,6 @@
             cursor: not-allowed;
         }
         
-        .evaluation-toggle {
-            margin-left: 10px;
-        }
-        
         .tools-section {
             margin-top: 30px;
         }
@@ -338,10 +334,7 @@
             </div>
             
             <div class="chat-input-container">
-                <input type="text" id="chat-input" class="chat-input" placeholder="Ask me anything... (e.g., 'I need a laptop for gaming' or 'What are the latest trends in outdoor gear?')" onkeypress="handleChatKeyPress(event)">
-                <label class="evaluation-toggle">
-                    <input type="checkbox" id="use-evaluation" checked> Use Evaluation
-                </label>
+                <input type="text" id="chat-input" class="chat-input" placeholder="Ask me anything... (e.g., 'I need a laptop for gaming' or 'evaluate the quality of this answer')" onkeypress="handleChatKeyPress(event)">
                 <button id="send-button" class="send-button" onclick="sendChatMessage()">Send</button>
             </div>
         </div>
@@ -684,8 +677,6 @@
             const message = input.value.trim();
             if (!message) return;
             
-            const useEvaluation = document.getElementById('use-evaluation').checked;
-            
             // Clear input and show loading state
             input.value = '';
             isLoading = true;
@@ -702,8 +693,8 @@
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        message: message,
-                        use_evaluation: useEvaluation
+                        message: message
+                        // Removed use_evaluation - let Semantic Kernel decide intelligently!
                     })
                 });
                 

@@ -3,7 +3,7 @@ Web search functionality using SerpAPI Bing for external research.
 """
 import asyncio
 import logging
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from datetime import datetime
 import aiohttp
 from src.utils.mcp_config import Config
@@ -26,7 +26,7 @@ class WebSearcher:
             self._llm_client = self.config.get_llm()
         return self._llm_client
 
-    def format_context_for_llm(self, context: List[Dict[str, Any]]) -> str:
+    def _format_context_for_llm(self, context: List[Dict[str, Any]] = None) -> str:
         """Format search results for LLM processing."""
         # TODO: This is repeated in rag_generator.py, consider refactoring
         formatted_context = ""
@@ -42,18 +42,18 @@ class WebSearcher:
                 formatted_context += f"\n{i}. Content: {item.get('content', 'N/A')}\n{item.get('citation', 'N/A')}\nMetadata: {item.get('metadata', {})}\n"
         return formatted_context
 
-    async def get_web_search_queries(self, user_query: str, internal_context: list = None) -> List[Dict[str, Any]]:
+    async def _get_web_search_queries(self, user_query: str, internal_context: Optional[list] = None) -> List[Dict[str, Any]]:
         """
         Generate smart web search queries based on a user question.
         
         Args:
             user_query: The question to research
-            internal_context: Internal search results to inform web queries
+            internal_context: Internal search results to inform web queries (can be None or empty list)
             
         Returns:
             List of optimized search queries with priorities
         """
-        formatted_context = self.format_context_for_llm(internal_context)
+        formatted_context = self._format_context_for_llm(internal_context)
 
         def _sync_query_generation():
             """Synchronous OpenAI API call to run in thread pool."""
@@ -137,7 +137,7 @@ Should we search the web for additional information or is the internal context f
         with ThreadPoolExecutor() as executor:
             return await loop.run_in_executor(executor, _sync_query_generation)
     
-    def transform_serpapi_bing_results(
+    def _transform_serpapi_bing_results(
         self, 
         serp_query: str,
         serp_response: Dict[str, Any],
@@ -150,11 +150,9 @@ Should we search the web for additional information or is the internal context f
         if includes is None:
             includes = ["organic_results"]
         
-        # Check if serp_response is a valid dictionary (defensive programming)
-        # Under normal circumstances, SerpAPI always returns a dict, but this protects
-        # against edge cases like malformed responses or API errors
+        # Check if serp_response is a valid dictionary
         if not isinstance(serp_response, dict):
-            logger.error(f"Unexpected SERP response format: expected dict, got {type(serp_response)}. Response: {str(serp_response)[:200]}...")
+            logger.warning(f"Invalid SERP response format: expected dict, got {type(serp_response)}")
             return []
         
         # Check for API error responses
@@ -248,13 +246,13 @@ Should we search the web for additional information or is the internal context f
         
         return SearchResults(queries=results).to_list()
 
-    async def search_serpapi_bing(self, query: str, n_results: int = 5) -> List[Dict[str, Any]]:
+    async def search_serpapi_bing_with_query(self, query: str, n_results_per_search: int = 5) -> List[Dict[str, Any]]:
         """
         Search the web using Bing via SerpAPI.
         
         Args:
             query: What to search for
-            n_results: Maximum results to return
+            n_results_per_search: Maximum results to return
             
         Returns:
             List of web search results with content and links
@@ -266,17 +264,17 @@ Should we search the web for additional information or is the internal context f
         try:
             params = {
                 "engine": "bing",
-                "q": f"{query} -site:ell.stackexchange.com -site:www.tenforums.com",  # Simplified exclusions
+                "q": f"{query} -site:https://ell.stackexchange.com -site:ell.stackexchange.com -site:www.tenforums.com",  # Simplified exclusions
                 "api_key": self.config.serp_api_key,
                 "mkt": "en-us",
                 "cc": "US", 
                 "safeSearch": "on",
-                "num": min(n_results * 2, 10)  # Cap max results to prevent slow responses
+                "num": min(n_results_per_search * 2, 10)  # Cap max results to prevent slow responses
             }
             
             # Use shorter timeout and connection settings for faster responses
-            timeout = aiohttp.ClientTimeout(total=12.0, connect=3.0)  # 12 second total, 3 second connect
-            connector = aiohttp.TCPConnector(limit=10, limit_per_host=5)
+            timeout = aiohttp.ClientTimeout(total=12.0, connect=2.0)  # 12 second total, 2 second connect
+            connector = aiohttp.TCPConnector(limit=10, limit_per_host=10)
             
             async with aiohttp.ClientSession(timeout=timeout, connector=connector) as session:
                 async with session.get(self.base_url, params=params) as response:
@@ -295,14 +293,14 @@ Should we search the web for additional information or is the internal context f
                         logger.warning(f"Invalid response format: expected dict, got {type(json_data)}")
                         return []
                     
-                    results = self.transform_serpapi_bing_results(
+                    results = self._transform_serpapi_bing_results(
                         serp_query=query,
                         serp_response=json_data,
-                        n_results=n_results
+                        n_results=n_results_per_search
                     )
                     
                     # Ensure we don't exceed requested results
-                    return results[:n_results] if len(results) > n_results else results
+                    return results[:n_results_per_search] if len(results) > n_results_per_search else results
 
         except asyncio.TimeoutError:
             logger.warning(f"Search timeout for query '{query[:50]}...'")
@@ -314,17 +312,26 @@ Should we search the web for additional information or is the internal context f
             logger.error(f"Unexpected error searching for '{query[:50]}...': {e}")
             return []
 
-    async def search_serpapi_bing_with_generated_queries(self, generated_queries: list, n_results: int = 5) -> list:
+    async def search_serpapi_bing_with_generated_queries(self, user_query: str, internal_context: Optional[list] = None, n_results_per_search: int = 5) -> list:
         """
         Execute multiple web searches using generated queries.
         
         Args:
-            generated_queries: List of search queries to execute
-            n_results: Maximum results per query
-            
+            user_query: The original user query
+            internal_context: Contextual information to consider (can be None or empty list)
+            n_results_per_search: Number of results to return per search
+
         Returns:
             Combined results from all searches
         """
+        # Execute searches concurrently with error handling
+        all_results = []
+
+        # Handle None or empty list for internal_context
+        if internal_context is None:
+            internal_context = []
+
+        generated_queries = await self._get_web_search_queries(user_query=user_query, internal_context=internal_context)
         # Early return for empty queries
         if not generated_queries:
             logger.info("No search queries provided, returning empty results")
@@ -333,7 +340,7 @@ Should we search the web for additional information or is the internal context f
         # Sort queries by priority rank but use all queries provided
         sorted_queries = sorted(generated_queries, key=lambda q: q.get('priority_rank', 1))
         
-        logger.info(f"Running {len(sorted_queries)} web searches with {n_results} results each (max {len(sorted_queries) * n_results} total)")
+        logger.info(f"Running {len(sorted_queries)} web searches with {n_results_per_search} results each (max {len(sorted_queries) * n_results_per_search} total)")
         
         # Create search tasks with timeout
         search_tasks = []
@@ -342,14 +349,13 @@ Should we search the web for additional information or is the internal context f
             if search_query.strip():  # Only search non-empty queries
                 task = asyncio.create_task(
                     asyncio.wait_for(
-                        self.search_serpapi_bing(search_query, n_results),
+                        self.search_serpapi_bing_with_query(search_query, n_results_per_search),
                         timeout=12.0  # 12 second timeout per search
                     )
                 )
                 search_tasks.append((i, task))
         
-        # Execute searches concurrently with error handling
-        all_results = []
+        
         if search_tasks:
             # Use asyncio.gather with return_exceptions=True to handle individual failures
             task_results = await asyncio.gather(

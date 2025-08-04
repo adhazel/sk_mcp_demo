@@ -142,34 +142,53 @@ class ProductChatAgent:
             Agent instructions string
         """
         return """
-You are an intelligent RAG (Retrieval Augmented Generation) assistant. Your goal is to answer user questions using the available MCP tools.
+You are a product chat assistant whose job is to help users with product-related questions using available MCP tools. You have access to MCP tools through the call_mcp_tool function.
 
-CHAT CONVERSATION STRATEGY:
-For normal user conversations and questions, you should ONLY use these two functions:
-1. generate_chat_response - For standard comprehensive answers
-2. generate_evaluated_chat_response - For answers that need quality evaluation and accuracy scoring
+AVAILABLE MCP TOOLS (accessed via call_mcp_tool):
+1. **search_internal_products** - Search the internal product catalog using ChromaDB
+   - Parameters: {"query": "search terms", "n_results": 5}
+   - Returns: List of dictionaries with internal search results, citations, and metadata
+   - Use this first for any product-related questions
 
-These functions are complete solutions that internally handle:
-- Searching the internal product database
-- Generating and executing web search queries
-- Combining information from multiple sources
-- Creating comprehensive, well-cited responses
+2. **search_external_web** - Search the web for additional information
+   - Parameters: {"user_query": "search terms", "n_results_per_search": 2, "internal_context": [optional results from search_internal_products]}
+   - This tool automatically generates web search queries based on the user question and any internal context provided
+   - Returns: List of dictionaries with external search results, citations, and metadata
 
-IMPORTANT CHAT GUIDELINES:
-- DO NOT manually orchestrate multiple tools for chat conversations
-- DO NOT use search_internal_products, generate_web_search_queries, web_search, or debug_event_details for chat
-- Use generate_chat_response for most questions
-- Use generate_evaluated_chat_response when evaluation/accuracy scoring is requested
-- These chat functions will handle all the search and research steps internally
-- Let the chat functions do the heavy lifting - they are complete RAG solutions
+3. **evaluate_response** - Evaluate response accuracy and quality
+   - Parameters: {"user_query": "original question", "response": "response to evaluate", "context": "search results context"}
+   - Use when users ask for evaluation, accuracy checking, or quality assessment
+   - Examples: "How accurate is this?", "Please evaluate this answer", "Check the quality"
 
-WHEN TO USE OTHER TOOLS:
-The other tools (search_internal_products, etc.) are available for:
-- Direct testing and debugging purposes
-- When explicitly instructed to use a specific tool
-- API endpoints that call tools directly (not chat conversations)
+HOW TO USE MCP TOOLS:
+- Use the call_mcp_tool function with tool_name and parameters (as JSON string)
+- Example: call_mcp_tool(tool_name="search_internal_products", parameters='{"query": "hiking boots", "n_results": 5}')
+- Example: call_mcp_tool(tool_name="search_external_web", parameters='{"user_query": "waterproof hiking boots", "n_results_per_search": 3}')
 
-Remember: For chat conversations, use ONLY the generate_chat_response or generate_evaluated_chat_response functions!
+WORKFLOW:
+1. **Always start with internal search** using search_internal_products for any product-related question
+   - If results are relevant to the user's question, use them in your response
+   - If no relevant results, inform the user that their question is outside the product catalog scope
+
+2. **Follow up with external search for enhanced context**:
+   - For most product questions, perform an external web search to provide comprehensive information
+   - Use search_external_web with the user's question and pass internal results as internal_context
+   - This demonstrates the power of combining internal product data with external market information
+   - Skip external search ONLY if the question is completely unrelated to products or if the user explicitly requests internal-only information
+
+3. **Combine information sources** to provide comprehensive, accurate responses that showcase both internal product knowledge and external market context
+
+4. **Use evaluation tool** when specifically requested by the user or when you want to assess response quality
+
+IMPORTANT NOTES:
+- Always use call_mcp_tool to access MCP server functions
+- Format parameters as valid JSON strings
+- Prefer using BOTH internal and external searches to demonstrate multi-tool orchestration
+- The search_external_web tool is intelligent - it generates its own web search queries based on the user question and internal context
+- Always preserve the exact format of search results as they may be needed for evaluation
+- Be helpful and professional in combining results from multiple sources
+- Show users the value of comprehensive research by using multiple information sources
+
 """
 
     async def process_question(
@@ -204,8 +223,10 @@ Remember: For chat conversations, use ONLY the generate_chat_response or generat
             if context:
                 full_question = f"Context: {context}\n\nQuestion: {question}"
             
-            if use_evaluation:
-                full_question += "\n\nPlease use generate_evaluated_chat_response for this question."
+            # Add instruction to encourage using both internal and external search tools
+            full_question += "\n\nNote: Please use both internal product search AND external web search tools to demonstrate multiple tool usage. Show how combining information from both sources enhances the response."
+            
+            # Note: evaluation can be done using the evaluate_response MCP tool if needed
             
             # Use agent to get response with thread management
             response = await agent.get_response(messages=full_question, thread=thread)
@@ -262,10 +283,11 @@ Remember: For chat conversations, use ONLY the generate_chat_response or generat
         try:
             agent = await self._get_or_create_agent()
             
-            # Add evaluation instruction if needed
+            # Add instruction to encourage using both internal and external search tools
             full_question = question
-            if use_evaluation:
-                full_question += "\n\nPlease use generate_evaluated_chat_response for this question."
+            full_question += "\n\nNote: Please use both internal product search AND external web search tools to demonstrate multiple tool usage. Show how combining information from both sources enhances the response."
+            
+            # Note: evaluation can be done using the evaluate_response MCP tool if needed
             
             # Get response using the thread
             response = await agent.get_response(messages=full_question, thread=thread)
@@ -344,17 +366,13 @@ Remember: For chat conversations, use ONLY the generate_chat_response or generat
         use_evaluation: bool = False
     ) -> Dict[str, Any]:
         """
-        Generate a simple chat response using only the chat response functions.
-        
-        This method restricts the agent to ONLY use generate_chat_response or 
-        generate_evaluated_chat_response for chat interactions, ensuring a 
-        focused conversational experience.
+        Generate a simple chat response using MCP tools for product assistance.
         
         Args:
             question: The user's question
             context: Additional context
-            use_web_search: Whether to use web search
-            use_evaluation: Whether to use evaluation
+            use_web_search: Whether to allow web search (defaults to True to encourage multi-tool usage)
+            use_evaluation: Whether to use evaluation (if requested by user)
             
         Returns:
             Chat response
@@ -362,24 +380,16 @@ Remember: For chat conversations, use ONLY the generate_chat_response or generat
         try:
             agent = await self._get_or_create_agent()
             
-            # Build the question with strict instructions
+            # Build the question with context
             full_question = question
             if context:
                 full_question = f"Context: {context}\n\nQuestion: {question}"
             
-            # Add VERY specific function instruction with restrictions
-            func_name = "generate_evaluated_chat_response" if use_evaluation else "generate_chat_response"
-            
-            full_question += f"""
-
-IMPORTANT INSTRUCTIONS:
-- You MUST use the {func_name} function to answer this question
-- Do NOT use any other MCP tools like search_internal_products, debug_event_details, or generate_web_search_queries
-- The {func_name} function will handle all searching and research internally
-- Simply call {func_name} with the user's question as the user_query parameter"""
-            
-            if not use_web_search:
-                full_question += "\n- Set n_web_results to 0 to disable web search."
+            # Add instruction to encourage both internal and external searches
+            if use_web_search:
+                full_question += "\n\nNote: Please use both internal product search AND external web search to demonstrate multiple tool usage. Show how combining information from both sources enhances the response."
+            else:
+                full_question += "\n\nNote: Please focus on internal product catalog only, avoid external web searches."
             
             # Get response
             response = await agent.get_response(messages=full_question)
@@ -499,17 +509,16 @@ IMPORTANT INSTRUCTIONS:
         # Get basic status info
         function_count = 0
         
-        # Count MCP functions by checking for known function names
+        # Count MCP functions by checking for the actual available plugin functions
         if self.mcp_plugin:
-            mcp_function_names = [
-                'search_internal_products',
-                'web_search', 
-                'generate_web_search_queries',
-                'generate_chat_response',
-                'generate_evaluated_chat_response'
+            plugin_function_names = [
+                'list_available_tools',
+                'list_available_resources', 
+                'mcp_health_check',
+                'call_mcp_tool'
             ]
             
-            for func_name in mcp_function_names:
+            for func_name in plugin_function_names:
                 if hasattr(self.mcp_plugin, func_name) and callable(getattr(self.mcp_plugin, func_name)):
                     function_count += 1
         

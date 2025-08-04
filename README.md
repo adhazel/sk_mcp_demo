@@ -113,10 +113,12 @@ poetry install
 ```
 
 ### 2. Start the MCP Server
+
+Run the below. Consider renaming the terminal to "mcp_server".
+
 ```bash
 # In terminal 1
-cd mcp_rag
-poetry run python src/server_phase2.py
+cd mcp_rag && poetry run python src/mcp_server_product_agent.py
 ```
 
 ### 3. Run the Demo

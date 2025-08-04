@@ -43,6 +43,10 @@ async def lifespan(app: FastAPI):
         orchestrator = ProductChatAgent(config)
         logger.info("✅ ProductChatAgent initialized")
         
+        # Initialize the agent and MCP plugin right away
+        await orchestrator._get_or_create_agent()
+        logger.info("✅ Agent and MCP plugin initialized")
+        
         # Initialize MCP client for tools discovery (supplemental)
         try:
             # Use the same server URL as the orchestrator
@@ -127,7 +131,7 @@ app = create_app()
 class ChatRequest(BaseModel):
     """Request model for intelligent chat."""
     message: str = Field(..., description="The user's message")
-    use_evaluation: bool = Field(True, description="Whether to use evaluation and risk scoring")
+    # Removed use_evaluation - Semantic Kernel will decide intelligently based on the message content
 
 
 class ToolCallRequest(BaseModel):
@@ -290,9 +294,10 @@ async def intelligent_chat(request: ChatRequest) -> Dict[str, Any]:
                 }
         else:
             # Use the orchestrator's process_question method for intelligent handling
+            # Semantic Kernel will decide whether evaluation is needed based on the message content
             result = await orchestrator.process_question(
                 question=request.message,
-                use_evaluation=request.use_evaluation
+                use_evaluation=False  # Let SK decide through AI orchestration
             )
         
         # Ensure result is a dictionary
@@ -347,35 +352,57 @@ async def intelligent_chat(request: ChatRequest) -> Dict[str, Any]:
 
 @app.post("/call-tool")
 async def call_tool_direct(request: ToolCallRequest) -> Dict[str, Any]:
-    """Call a specific MCP tool directly through the orchestrator."""
+    """
+    Direct MCP tool execution using the Semantic Kernel plugin's call_mcp_tool function.
+    
+    This bypasses the agent's process_question and directly calls the tool
+    for a cleaner testing experience.
+    """
     if not orchestrator:
         raise HTTPException(status_code=503, detail="Orchestrator not initialized")
     
+    if not orchestrator.mcp_plugin:
+        # Try to initialize the MCP plugin if not already done
+        try:
+            await orchestrator._get_or_create_agent()
+            logger.info("✅ Successfully initialized MCP plugin on demand")
+        except Exception as e:
+            logger.error(f"❌ Failed to initialize MCP plugin on demand: {e}")
+            raise HTTPException(status_code=503, detail=f"MCP plugin not initialized and could not be initialized: {str(e)}")
+    
     try:
-        # Map common tool names to orchestrator methods
-        if request.tool_name == "search_internal_products":
-            result = await orchestrator.simple_search(
-                query=request.parameters.get("query", ""),
-                limit=request.parameters.get("n_results", 5)
-            )
-        elif request.tool_name == "generate_chat_response":
-            result = await orchestrator.simple_chat(
-                question=request.parameters.get("user_query", ""),
-                use_evaluation=False
-            )
-        elif request.tool_name == "generate_evaluated_chat_response":
-            result = await orchestrator.simple_chat(
-                question=request.parameters.get("user_query", ""),
-                use_evaluation=True
-            )
-        else:
-            # For other tools, try to use the orchestrator's process_question method
-            tool_question = f"Please use {request.tool_name} with parameters: {request.parameters}"
-            result = await orchestrator.process_question(
-                question=tool_question,
-                use_evaluation=False
-            )
+        # Format parameters as JSON string for call_mcp_tool
+        import json
+        parameters_json = json.dumps(request.parameters) if request.parameters else None
         
+        # Directly call the MCP tool through the plugin's call_mcp_tool function
+        result = await orchestrator.mcp_plugin.call_mcp_tool(
+            tool_name=request.tool_name,
+            parameters=parameters_json
+        )
+        
+        # Convert string result to dictionary if possible
+        try:
+            parsed_result = json.loads(result) if isinstance(result, str) else result
+        except (json.JSONDecodeError, TypeError):
+            parsed_result = {"result": result}
+        
+        # Add metadata to show this was direct execution
+        if isinstance(parsed_result, dict):
+            parsed_result["execution_method"] = "direct_mcp_tool_call"
+            parsed_result["tool_name"] = request.tool_name
+            parsed_result["tool_parameters"] = request.parameters
+            
+        return parsed_result
+        
+    except Exception as e:
+        logger.error(f"❌ Error calling MCP tool directly: {e}")
+        return {
+            "status": "error",
+            "error": str(e),
+            "tool_name": request.tool_name,
+            "execution_method": "direct_mcp_tool_call_failed"
+        }
         if "error" in result:
             raise HTTPException(status_code=500, detail=result["error"])
         
@@ -384,8 +411,8 @@ async def call_tool_direct(request: ToolCallRequest) -> Dict[str, Any]:
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Tool call failed: {e}")
-        raise HTTPException(status_code=500, detail=f"Tool call failed: {str(e)}")
+        logger.error(f"AI orchestration failed: {e}")
+        raise HTTPException(status_code=500, detail=f"AI orchestration failed: {str(e)}")
 
 
 @app.get("/tools")
