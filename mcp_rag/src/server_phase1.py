@@ -1,14 +1,5 @@
 """
-NAME: server_phase2.py
-DESCRIPTION: This file implements a demo server using the Model Context Protocol (MCP) with streamable HTTP support. It uses mcp.server.fastmcp.FastMCP for the server implementation and session handling with an in-memory event store for resumability. The server provides tools and resources, including debugging tools to inspect stored events.
-
-This server definition is phase 1 in a multi-phase tutorial series. This phase focuses on setting up the server and basic instrumentation, such as logging and event storage.
-
-AUTHOR: April Hazel
-CREDIT: Derived from: 
-    https://github.com/modelcontextprotocol/python-sdk/blob/959d4e39ae13e45d3059ec6d6ca82fb231039a91/examples/servers/simple-streamablehttp/mcp_simple_streamablehttp/server.py
-HISTORY:
-    - 20240730: Initial implementation based on the simple streamable HTTP server example.
+Basic MCP server setup with event storage and logging.
 """
 from mcp.server.fastmcp import FastMCP
 import logging
@@ -27,9 +18,9 @@ logger = logging.getLogger(__name__)
 # Create event store for streamable HTTP
 event_store = InMemoryEventStore(max_events_per_stream=1000)
 
-# Create an MCP server with streamable HTTP support
-PORT = 8002
-HOST = "127.0.0.1"
+# Use MCP configuration from environment variables
+PORT = int(config.mcp_port)
+HOST = config.mcp_host
 URL = f"{HOST}:{PORT}"
 
 ##################################################

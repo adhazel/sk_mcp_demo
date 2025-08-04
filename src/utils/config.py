@@ -22,10 +22,17 @@ from .caller import get_caller
 import logging
 from  openai import AzureOpenAI, OpenAI
 
-def load_environment(env: str = "local", project_name: str = "mcp_rag"):
-    """Load environment variables based on environment."""
+def load_environment(environment: str | None = None, project_name: str = "sk_mcp_demo"):
+    """Load environment."""
 
     logging.debug(f"🐛 DEBUG: Config file being executed: {__file__}")
+
+    # 1) ENVIRONMENT is set by your deployment pipeline 
+    # If an env is manually passed in, it accepts that override
+    env = environment or os.getenv("ENVIRONMENT", environment)
+    # default to local if not set
+    if env is None:
+            env = "local"
 
     # Get the project root 
     caller_path = get_caller()
@@ -47,15 +54,21 @@ def load_environment(env: str = "local", project_name: str = "mcp_rag"):
     # Set PROJECT_ROOT as an environment variable
     os.environ["PROJECT_ROOT"] = str(project_root)
     
-    # Load environment-specific file from project root
-    env_file = project_root / f".env.{env}"
-    
+    # 2) pipeline should have placed a non-suffixed .env file in the root
+    #    If this ".env" file exists, we use it.
+    #    else fall back to suffix-based.
+    env_file = project_root / '.env'
+    if env_file.exists():
+        env = "default"
+    else:
+        env_file = project_root / f".env.{env}"
+
     if env_file.exists():
         load_dotenv(env_file, override=True)
-        logging.debug(f"✅ Loaded environment file: {env_file}")
+        logging.info(f"✅ Loaded environment file for {env!r}: {env_file}")
     else:
-        logging.warning(f"⚠️  Environment file not found: {env_file}")
-        logging.warning(f"💡 Expected location: {env_file.absolute()}")
+        raise FileNotFoundError(f"No .env file found at {env_file}")
+    return env
 
 
 def _get_valid_env_value(key: str, default: str = None) -> str:
@@ -75,8 +88,9 @@ def _get_valid_env_value(key: str, default: str = None) -> str:
     return value
 
 class Config:
+    """Load and manage application configuration from environment."""
     
-    def __init__(self, environment: str = "local", project_name: str = "sk_mcp_demo"):
+    def __init__(self, environment: str = None, project_name: str = "sk_mcp_demo"):
         try: 
             # Configure basic logging first with a default level
             logging.basicConfig(
@@ -84,14 +98,11 @@ class Config:
                 format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                 force=True
             )
+            # Load environment with info logging
+            self.environment = load_environment(environment=environment, project_name=project_name)
 
-            # Load environment (now logging will work in load_environment)
-            load_environment(environment, project_name=project_name)
-            logging.info(f"✅ Loaded environment file for '{environment}' environment")
-
+            # Reset log level with value from environment
             self.log_level = _get_valid_env_value("LOG_LEVEL", "INFO").upper()
-
-            # Reconfigure logging with the final level from environment
             final_level = getattr(logging, self.log_level, logging.INFO)
             logging.basicConfig(
                 level=final_level,
@@ -103,9 +114,6 @@ class Config:
         except Exception as e:
             logging.error(f"❌ Failed to load environment variables: {e}")
             raise
-        
-        # Store the environment
-        self.environment = environment
         
         # Get project root from environment variable
         self.project_root = Path(_get_valid_env_value("PROJECT_ROOT"))
@@ -129,11 +137,19 @@ class Config:
         self.azure_openai_embedding_deployment = _get_valid_env_value("AZURE_OPENAI_EMBEDDING_DEPLOYMENT")
         self.azure_openai_embedding_api_version = _get_valid_env_value("AZURE_OPENAI_EMBEDDING_API_VERSION")
 
-        # Vector Store Configuration
+        # Vector Store Configuration - scoped to main SK project
         self.chroma_db_path = _get_valid_env_value("CHROMA_DB_PATH", "./data/chroma_db")
 
-        # Web Search Configuration (for your RAG + web search feature)
+        # Web Search Configuration
         self.serp_api_key = _get_valid_env_value("SERP_API_KEY")
+
+        # MCP Server Configuration
+        self.mcp_server_url = _get_valid_env_value("MCP_SERVER_URL", "http://127.0.0.1:8002")
+        
+        # Semantic Kernel Configuration
+        self.sk_planner_model = _get_valid_env_value("SK_PLANNER_MODEL")  # Optional separate model for planning
+        self.sk_max_iterations = int(_get_valid_env_value("SK_MAX_ITERATIONS", "10"))
+        self.sk_temperature = float(_get_valid_env_value("SK_TEMPERATURE", "0.7"))
 
         # Validate required settings
         self._validate_config()
@@ -142,7 +158,7 @@ class Config:
         """Validate that required configuration is present."""
         required_settings = {}
 
-        # add OPENAI_API_KEY to required_settings if OPENAI_API_TYPE is not set or not "azure"
+        # Check for OpenAI configuration
         if self.openai_api_type.lower() != "azure":
             required_settings["OPENAI_API_KEY"] = self.openai_api_key
         else:
@@ -178,6 +194,10 @@ class Config:
             f"azure_openai_embedding_api_version={self.azure_openai_embedding_api_version!r}, "
             f"chroma_db_path={self.chroma_db_path!r}, "
             f"serp_api_key={'***' if self.serp_api_key else None}, "
+            f"mcp_server_url={self.mcp_server_url!r}, "
+            f"sk_planner_model={self.sk_planner_model!r}, "
+            f"sk_max_iterations={self.sk_max_iterations!r}, "
+            f"sk_temperature={self.sk_temperature!r}, "
             f"project_root={self.project_root!r}"
             f")"
         )
@@ -188,21 +208,36 @@ class Config:
         
         Returns:
             An instance of the configured LLM client.
+            
+        Raises:
+            ValueError: If required configuration is missing.
         """
         if self.openai_api_type.lower() == "azure":
+            # Validate required Azure OpenAI parameters
+            if not self.azure_openai_api_key:
+                raise ValueError("AZURE_OPENAI_API_KEY is required for Azure OpenAI")
+            if not self.azure_openai_endpoint:
+                raise ValueError("AZURE_OPENAI_ENDPOINT is required for Azure OpenAI")
+            if not self.azure_openai_api_version:
+                raise ValueError("AZURE_OPENAI_API_VERSION is required for Azure OpenAI")
+                
             return AzureOpenAI(
                 api_key=self.azure_openai_api_key,
-                endpoint=self.azure_openai_endpoint,
-                model=self.azure_openai_model,
-                deployment=self.azure_openai_deployment,
+                azure_endpoint=self.azure_openai_endpoint,
                 api_version=self.azure_openai_api_version
             )
         else:
-            return OpenAI(api_key=self.openai_api_key, model=self.openai_model)
+            # Validate required OpenAI parameters
+            if not self.openai_api_key:
+                raise ValueError("OPENAI_API_KEY is required for OpenAI")
+                
+            return OpenAI(
+                api_key=self.openai_api_key
+            )
 
     def to_dict(self) -> dict:
         """
-        Return configuration as a dictionary for easier access in notebooks.
+        Return configuration as a dictionary for easier access.
         Excludes None values and internal attributes.
         """
         config_dict = {}

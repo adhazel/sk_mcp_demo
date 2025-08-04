@@ -1,5 +1,5 @@
 """
-RAG Tools for ChromaDB Search
+ChromaDB search functionality for retrieving internal product information.
 """
 import asyncio
 import logging
@@ -8,51 +8,12 @@ from pathlib import Path
 import chromadb
 from chromadb.utils import embedding_functions
 from src.utils.mcp_config import Config
-from pydantic import BaseModel, Field
+from src.models import SearchResult, SearchResults
 
 logger = logging.getLogger(__name__)
 
-# TODO: Consolidate models into a model folder
-
-class SearchResult(BaseModel):
-    """Model for search result"""
-    query: str
-    content: str
-    citation: str
-    metadata: Dict[str, Any]
-    content_id: int = -1
-    search_order: int = -1
-    source_type: str = "internal"  # Default source type
-
-class SearchResults(BaseModel):
-    """Model for search results"""
-    queries: List[SearchResult] = Field(default_factory=list)
-    
-    def __len__(self) -> int:
-        """Return the number of search results"""
-        return len(self.queries)
-    
-    def to_dict(self) -> List[Dict[str, Any]]:
-        """Convert SearchResults to dictionary format for backward compatibility"""
-        return [
-            {
-                "query": result.query,
-                "content": result.content,
-                "citation": result.citation,
-                "metadata": result.metadata,
-                "content_id": result.content_id,
-                "search_order": result.search_order,
-                "source_type": result.source_type
-            }
-            for result in self.queries
-        ]
-    
-    def to_list(self) -> List[Dict[str, Any]]:
-        """Alias for to_dict() for clearer intent"""
-        return self.to_dict()
-
 class ChromaDBSearcher:
-    """ChromaDB search functionality for RAG"""
+    """Search internal product database using ChromaDB."""
     
     def __init__(self, config: Config):
         self.config = config
@@ -60,11 +21,11 @@ class ChromaDBSearcher:
         self._collection = None
     
     def _get_chroma_path(self) -> Path:
-        """Get resolved ChromaDB path - matches working pattern"""
+        """Get the ChromaDB storage path."""
         return Path(self.config.project_root / self.config.chroma_db_path.lstrip('./'))
     
     async def _get_client(self):
-        """Get or create ChromaDB client"""
+        """Get or create the ChromaDB client."""
         if self._client is None:
             chroma_path = self._get_chroma_path()
             logger.info(f"Connecting to ChromaDB at: {chroma_path}")
@@ -81,7 +42,7 @@ class ChromaDBSearcher:
         return self._client
     
     def _get_embedding_function(self):
-        """Create embedding function - matches working pattern"""
+        """Create the embedding function for ChromaDB."""
         if self.config.openai_api_type == "azure":
             return embedding_functions.OpenAIEmbeddingFunction(
                 api_key=self.config.azure_openai_embedding_api_key,
@@ -98,7 +59,7 @@ class ChromaDBSearcher:
             )
     
     async def _get_collection(self, collection_name: str = "product_collection"):
-        """Get ChromaDB collection - matches working pattern"""
+        """Get or create the ChromaDB collection."""
         if self._collection is None:
             client = await self._get_client()
             loop = asyncio.get_event_loop()
@@ -117,20 +78,20 @@ class ChromaDBSearcher:
                 logger.info(f"Successfully connected to collection '{collection_name}'")
             except Exception as e:
                 logger.error(f"Error getting collection: {e}", exc_info=True)
-                return None
+                raise e
         return self._collection
 
-    async def search_chroma(self, query: str, n_results: int = 5, collection_name: str = "product_collection") -> SearchResults:
+    async def search_chroma(self, query: str, n_results: int = 5, collection_name: str = "product_collection") -> List[Dict[str, Any]]:
         """
-        Search ChromaDB for internal product information
+        Search for relevant products in the database.
         
         Args:
-            query: Search query string
-            n_results: Number of results to return
-            collection_name: ChromaDB collection name
+            query: What to search for
+            n_results: Maximum results to return
+            collection_name: Database collection to search
             
         Returns:
-            SearchResults object containing search results with content, citations, and metadata
+            List of matching products with metadata
         """
         try:
             collection = await self._get_collection(collection_name)
@@ -140,9 +101,10 @@ class ChromaDBSearcher:
                     content="ChromaDB collection not found or not accessible",
                     citation="[Source: ChromaDB | Status: Collection Not Found]",
                     metadata={"error": "collection_not_found"},
-                    content_id=-1
+                    context_id=-1,
+                    source_type="internal"
                 )
-                return SearchResults(queries=[error_result])
+                return SearchResults(queries=[error_result]).to_list()
             
             # Perform similarity search using thread pool
             loop = asyncio.get_event_loop()
@@ -175,43 +137,38 @@ class ChromaDBSearcher:
                             "distance": distance,
                             **metadata
                         },
-                        content_id=i+1,
-                        search_order=i + 1
+                        context_id=i+1,
+                        search_order=i + 1,
+                        source_type="internal"  # Explicitly set for ChromaDB results
                     )
                     search_results.append(search_result)
             
             if search_results:
-                return SearchResults(queries=search_results)
+                return SearchResults(queries=search_results).to_list()
             else:
                 no_results = SearchResult(
                     query=query,
                     content="No results found",
                     citation=f"[Source: ChromaDB | Collection: {collection_name} | Status: No Results]",
                     metadata={"collection": collection_name, "result_count": 0},
-                    content_id=-1
+                    context_id=-1,
+                    source_type="internal"
                 )
-                return SearchResults(queries=[no_results])
+                return SearchResults(queries=[no_results]).to_list()
             
         except Exception as e:
             logger.error(f"Error searching ChromaDB: {e}")
-            error_result = SearchResult(
-                query=query,
-                content=f"Error searching ChromaDB: {str(e)}",
-                citation=f"[Source: ChromaDB | Error: {str(e)[:100]}]",
-                metadata={"error": str(e)},
-                content_id=-1
-            )
-            return SearchResults(queries=[error_result])
+            raise e
 
     async def get_collection_info(self, collection_name: str = "product_collection") -> Dict[str, Any]:
         """
-        Get information about a ChromaDB collection
+        Get information about a database collection.
         
         Args:
-            collection_name: Name of the collection
+            collection_name: Name of the collection to inspect
             
         Returns:
-            Dictionary with collection metadata
+            Collection metadata and document count
         """
         try:
             collection = await self._get_collection(collection_name)
@@ -235,8 +192,4 @@ class ChromaDBSearcher:
             
         except Exception as e:
             logger.error(f"Error getting collection info: {e}")
-            return {
-                "name": collection_name,
-                "exists": False,
-                "error": str(e)
-            }
+            raise e

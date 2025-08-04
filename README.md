@@ -163,3 +163,31 @@ python src/main.py --mode api
 ```
 
 > **Note**: Each environment loads its corresponding `.env` file (`.env.dev`, `.env.prod`, `.env.local`)
+
+
+
+
+-------------
+SK Implementation: 
+🧠 src/ - Main Semantic Kernel Application
+src/agents/
+File	Purpose
+sk_orchestrator.py	🎯 CORE FILE - Your new ChatCompletionAgent implementation with MCPStreamableHttpPlugin
+src/utils/
+File	Purpose
+config.py	Configuration management - loads .env files, handles Azure/OpenAI settings
+caller.py	Utility for tracking function callers
+__init__.py	Python package initialization
+src/services/
+File	Purpose
+mcp_client_plugin.py	Legacy custom MCP plugin (replaced by official MCPStreamableHttpPlugin)
+src/api/
+File	Purpose
+app.py	FastAPI web server for REST API endpoints
+src/models/
+| Purpose: Data models and schemas (likely Pydantic models) |
+
+main.py
+| Purpose: Application entry point - CLI and API server launcher |
+
+

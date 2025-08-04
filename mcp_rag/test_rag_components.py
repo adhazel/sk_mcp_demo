@@ -8,6 +8,7 @@ poetry run python test_rag_components.py
 import asyncio
 import sys
 from pathlib import Path
+import time
 
 # Add project root to path
 project_root = Path(__file__).parent
@@ -23,14 +24,17 @@ async def test_components():
     """Test individual components"""
     print("🧪 Testing Components...")
     try: 
+        start = time.time()
         print("🔧⌛ Configuration loading...")
         config = Config(environment="local")
-        print(f"🔧✅ Configuration loaded: {config.environment}")
+        elapsed = time.time() - start
+        print(f"🔧✅ Configuration loaded: {config.environment} (Time: {elapsed:.2f}s)")
     except Exception as e:
         print(f"🔧❌ Error in configuration loading test: {e}")
         return
     
     try:
+        start = time.time()
         print("🧪⌛ LLM connectivity test in progress...")
         llm_client = config.get_llm()
         # response = await llm.chat("Tell me a joke")
@@ -43,30 +47,35 @@ async def test_components():
                     max_tokens=300,
                     temperature=0.9,
                 )
-        print(f"🧪✅ LLM connectivity suceeded: joke request response: {response.choices[0].message.content}")
+        elapsed = time.time() - start
+        print(f"🧪✅ LLM connectivity suceeded: joke request response: {response.choices[0].message.content} (Time: {elapsed:.2f}s)")
     except Exception as e:
         print(f"🧪❌ Error in LLM connectivity test: {e}")
         return
 
     try: 
+        start = time.time()
         print("📚⌛ ChromaDB collection exists...")
         chroma_searcher = ChromaDBSearcher(config)
         collection_info = await chroma_searcher.get_collection_info("product_collection")
+        elapsed = time.time() - start
         if collection_info.get("exists", False):
-            print("📚✅ ChromaDB collection does exists.")
+            print(f"📚✅ ChromaDB collection does exists. (Time: {elapsed:.2f}s)")
         else:
-            print("📚❌ ChromaDB collection does not exist.")
+            print(f"📚❌ ChromaDB collection does not exist. (Time: {elapsed:.2f}s)")
     except Exception as e:
         print(f"📚❌ Error in ChromaDB collection exists test: {e}")
         return
 
     try: 
+        start = time.time()
         print("🔍⌛ ChromaDB searching in progress ...")
         chroma_searcher = ChromaDBSearcher(config)
         if collection_info.get("exists", False):
             chroma_results = await chroma_searcher.search_chroma("hiking", n_results=2)
-            chroma_results_list = chroma_results.to_list()
-            print(f"🔍✅ ChromaDB search found {len(chroma_results_list)} results")
+            # chroma_results_list = chroma_results.to_list()
+            elapsed = time.time() - start
+            print(f"🔍✅ ChromaDB search found {len(chroma_results)} results (Time: {elapsed:.2f}s)")
         else:
             print("🔍❌ ChromaDB search failed")
     except Exception as e:
@@ -74,27 +83,32 @@ async def test_components():
         return
     
     try: 
+        start = time.time()
         print("❔⌛ Generating web queries test...")
         web_searcher = WebSearcher(config)
-        generated_queries = await web_searcher.get_web_search_queries(user_query="hiking", internal_context=chroma_results_list)
-        print(f"❔✅ Generating web queries succeeded: {len(generated_queries.queries)} queries")
+        generated_queries = await web_searcher.get_web_search_queries(user_query="hiking", internal_context=chroma_results)
+        elapsed = time.time() - start
+        print(f"❔✅ Generating web queries succeeded: {len(generated_queries)} queries (Time: {elapsed:.2f}s)")
     except Exception as e:
         print(f"❔❌ Error in Generating web queries test: {e}")
         return
 
     try: 
+        start = time.time()
         print("🌐⌛ Web searching in progress ...")
         web_searcher = WebSearcher(config)
-        if config.serp_api_key:
-            web_searcher_results = await web_searcher.search_serpapi_bing_with_generated_queries(generated_queries=generated_queries, n_results=2)
-            print(f"🌐✅ Web search found {len(web_searcher_results)} results")
-        else:
-            print("🌐❌ Web search failed")
+        web_searcher_results = await web_searcher.search_serpapi_bing_with_generated_queries(
+            generated_queries=generated_queries, 
+            n_results=2
+            )
+        elapsed = time.time() - start
+        print(f"🌐✅ Web searches performed: {len(web_searcher_results)} searches (Time: {elapsed:.2f}s)")
     except Exception as e:
         print(f"🌐❌ Error in Web search test: {e}")
         return
     
     try: 
+        start = time.time()
         print("🤖⌛ RAG generation in progress ...")
         rag_generator = RAGResponseGenerator(config)
         rag_results = await rag_generator.generate_chat_response(
@@ -102,22 +116,26 @@ async def test_components():
             n_chroma_results = 2,
             n_web_results = 3,
             collection_name= "product_collection")
-        print(f"🤖✅ RAG generation succeeded: response length: {len(rag_results['response'])}")
+        elapsed = time.time() - start
+        print(f"🤖✅ RAG generation succeeded: response length: {len(rag_results['response'])} (Time: {elapsed:.2f}s)")
     except Exception as e:
         print(f"🤖❌ Error in RAG generation test: {e}")
         return
     
     try: 
-        print("👩‍🔬⌛ RAG response evaluation in progress ...")
-        rag_evaluation = RAGEvaluator(config)
-        evaluation_results = await rag_evaluation.evaluate_rag_generator(
-            generated_rag_response=rag_results
-        )
-        print(f"👩‍🔬✅ RAG response evaluation succeeded: evaluation score: {evaluation_results['evaluation']['accuracy_score']}")
+        start = time.time()
+        print("👩‍🔬⌛ RAG response with evaluation in progress ...")
+        rag_with_evaluation = await rag_generator.generate_evaluated_chat_response(
+            user_query= "tell me about hiking",
+            n_chroma_results = 2,
+            n_web_results = 3,
+            collection_name= "product_collection")
+        elapsed = time.time() - start
+        print(f"👩‍🔬✅ RAG response with evaluation succeeded: evaluation score: {rag_with_evaluation['evaluation']['accuracy_score']} (Time: {elapsed:.2f}s)")
     except Exception as e:
-        print(f"👩‍🔬❌ Error in RAG response evaluation test: {e}")
-        return    
-    
+        print(f"👩‍🔬❌ Error in RAG response with evaluation test: {e}")
+        return
+
 
 
 def main():

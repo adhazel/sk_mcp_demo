@@ -30,9 +30,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class EventEntry:
-    """
-    Represents an event entry in the event store.
-    """
+    """An event entry with metadata."""
 
     event_id: EventId
     stream_id: StreamId
@@ -41,20 +39,10 @@ class EventEntry:
 
 
 class InMemoryEventStore(EventStore):
-    """
-    Simple in-memory implementation of the EventStore interface for resumability.
-    This is primarily intended for examples and testing, not for production use
-    where a persistent storage solution would be more appropriate.
-
-    This implementation keeps only the last N events per stream for memory efficiency.
-    """
+    """Simple in-memory event store for testing and demos."""
 
     def __init__(self, max_events_per_stream: int = 100):
-        """Initialize the event store.
-
-        Args:
-            max_events_per_stream: Maximum number of events to keep per stream
-        """
+        """Set up the event store with memory limits."""
         self.max_events_per_stream = max_events_per_stream
         # for maintaining last N events per stream
         self.streams: dict[StreamId, deque[EventEntry]] = {}

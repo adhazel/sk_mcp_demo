@@ -1,8 +1,12 @@
 
-import inspect, __main__
+"""Get the calling script's file path."""
+
+import inspect
+import __main__
 from pathlib import Path
 
 def get_caller():
+    """Find the file path of the script that called this function."""
     # 1) inspect stack for first non-this‐module frame
     for frame_info in inspect.stack()[1:]:
         fname = Path(frame_info.filename)

@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Intelligent MCP Client Demo</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .status {
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+        
+        .status.healthy {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.unhealthy {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .tools-section {
+            margin-top: 30px;
+        }
+        
+        .tool-card {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 20px;
+            margin-bottom: 15px;
+        }
+        
+        .tool-name {
+            font-size: 18px;
+            font-weight: bold;
+            color: #495057;
+            margin-bottom: 10px;
+        }
+        
+        .tool-description {
+            color: #6c757d;
+            margin-bottom: 15px;
+            line-height: 1.4;
+        }
+        
+        .tool-form {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        input[type="text"], input[type="number"] {
+            padding: 8px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        button:hover {
+            background-color: #0056b3;
+        }
+        
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            background-color: #e9ecef;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .loading {
+            color: #007bff;
+            font-style: italic;
+        }
+        
+        .error {
+            color: #dc3545;
+        }
+        
+        .refresh-btn {
+            background-color: #28a745;
+            margin-bottom: 20px;
+        }
+        
+        .refresh-btn:hover {
+            background-color: #1e7e34;
+        }
+        
+        .chat-section {
+            margin-top: 30px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+        }
+        
+        .chat-input-area {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .chat-input {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        
+        .chat-btn {
+            background-color: #17a2b8;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            white-space: nowrap;
+        }
+        
+        .chat-btn:hover {
+            background-color: #138496;
+        }
+        
+        .chat-result {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+        
+        .intent-analysis {
+            background: #e7f3ff;
+            border-left: 4px solid #007bff;
+            padding: 10px;
+            margin: 10px 0;
+            font-size: 14px;
+        }
+        
+        .user-message {
+            background: #e9ecef;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 Intelligent MCP Client Demo</h1>
+        
+        <button class="refresh-btn" onclick="loadStatus()">Refresh Status</button>
+        
+        <div id="status" class="status">
+            <div class="loading">Loading MCP status...</div>
+        </div>
+        
+        <div class="chat-section">
+            <h2>🤖 Intelligent Chat</h2>
+            <p>Ask me anything! I'll automatically choose the right tool to help you.</p>
+            
+            <div class="chat-input-area">
+                <input 
+                    type="text" 
+                    id="chatInput" 
+                    class="chat-input" 
+                    placeholder="Ask me anything... (e.g., 'I need hiking boots', 'What outdoor gear do you recommend?', 'Show me recent events')"
+                    onkeypress="if(event.key==='Enter') sendChatMessage()"
+                >
+                <button class="chat-btn" onclick="sendChatMessage()">Send</button>
+            </div>
+            
+            <div id="chatResult" style="display: none;"></div>
+        </div>
+        
+        <div class="tools-section">
+            <h2>Available Tools</h2>
+            <div id="tools" class="loading">Loading tools...</div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8001';
+        
+        async function apiCall(endpoint, method = 'GET', data = null) {
+            const options = {
+                method,
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            };
+            
+            if (data) {
+                options.body = JSON.stringify(data);
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}${endpoint}`, options);
+                return await response.json();
+            } catch (error) {
+                console.error('API call failed:', error);
+                return { error: `Failed to connect to server: ${error.message}` };
+            }
+        }
+        
+        async function loadStatus() {
+            const statusEl = document.getElementById('status');
+            statusEl.innerHTML = '<div class="loading">Checking MCP status...</div>';
+            
+            const status = await apiCall('/health');
+            
+            if (status.error) {
+                statusEl.className = 'status unhealthy';
+                statusEl.innerHTML = `❌ Error: ${status.error}`;
+            } else if (status.status === 'healthy') {
+                statusEl.className = 'status healthy';
+                statusEl.innerHTML = `
+                    ✅ MCP Connection: HEALTHY<br>
+                    Server: ${status.server_url}<br>
+                    Session ID: ${status.session_id}<br>
+                    Primitives: ${status.primitives.total} total 
+                    (${status.primitives.tools} tools, ${status.primitives.resources} resources, ${status.primitives.prompts} prompts)
+                `;
+            } else {
+                statusEl.className = 'status unhealthy';
+                statusEl.innerHTML = `❌ MCP Connection: UNHEALTHY - ${status.error || 'Unknown error'}`;
+            }
+            
+            // Load tools after status
+            loadTools();
+        }
+        
+        async function loadTools() {
+            const toolsEl = document.getElementById('tools');
+            toolsEl.innerHTML = '<div class="loading">Loading available tools...</div>';
+            
+            const tools = await apiCall('/tools');
+            
+            if (tools.error) {
+                toolsEl.innerHTML = `<div class="error">Error loading tools: ${tools.error}</div>`;
+                return;
+            }
+            
+            if (!tools.tools || tools.tools.length === 0) {
+                toolsEl.innerHTML = '<div>No tools available</div>';
+                return;
+            }
+            
+            toolsEl.innerHTML = tools.tools.map(tool => createToolCard(tool)).join('');
+        }
+        
+        function createToolCard(tool) {
+            const toolId = tool.name.replace(/[^a-zA-Z0-9]/g, '_');
+            
+            return `
+                <div class="tool-card">
+                    <div class="tool-name">${tool.name}</div>
+                    <div class="tool-description">${tool.description || 'No description available'}</div>
+                    <div class="tool-form">
+                        ${createToolInputs(tool, toolId)}
+                        <button onclick="callTool('${tool.name}', '${toolId}')">Execute</button>
+                    </div>
+                    <div id="result_${toolId}" class="result" style="display: none;"></div>
+                </div>
+            `;
+        }
+        
+        function createToolInputs(tool, toolId) {
+            // Simple input generation based on common MCP tool patterns
+            const inputs = [];
+            
+            if (tool.name === 'debug_event_details') {
+                inputs.push(`<input type="number" id="count_${toolId}" placeholder="Count (e.g., 5)" value="5">`);
+            } else if (tool.name === 'search_internal_products') {
+                inputs.push(`<input type="text" id="query_${toolId}" placeholder="Search query (e.g., hiking boots)" style="width: 200px;">`);
+                inputs.push(`<input type="number" id="n_results_${toolId}" placeholder="Results (e.g., 5)" value="5">`);
+            } else if (tool.name === 'generate_web_search_queries') {
+                inputs.push(`<input type="text" id="user_query_${toolId}" placeholder="User query (e.g., best hiking gear)" style="width: 250px;">`);
+            } else if (tool.name === 'generate_chat_response') {
+                inputs.push(`<input type="text" id="user_query_${toolId}" placeholder="Your question" style="width: 300px;">`);
+            } else if (tool.name === 'generate_evaluated_chat_response') {
+                inputs.push(`<input type="text" id="user_query_${toolId}" placeholder="Your question" style="width: 300px;">`);
+            }
+            
+            return inputs.join(' ');
+        }
+        
+        async function callTool(toolName, toolId) {
+            const resultEl = document.getElementById(`result_${toolId}`);
+            resultEl.style.display = 'block';
+            resultEl.innerHTML = '<div class="loading">Executing tool...</div>';
+            
+            const parameters = {};
+            
+            // Collect parameters based on tool
+            if (toolName === 'debug_event_details') {
+                const countEl = document.getElementById(`count_${toolId}`);
+                if (countEl && countEl.value) {
+                    parameters.count = parseInt(countEl.value);
+                }
+            } else if (toolName === 'search_internal_products') {
+                const queryEl = document.getElementById(`query_${toolId}`);
+                const nResultsEl = document.getElementById(`n_results_${toolId}`);
+                if (queryEl && queryEl.value) {
+                    parameters.query = queryEl.value;
+                }
+                if (nResultsEl && nResultsEl.value) {
+                    parameters.n_results = parseInt(nResultsEl.value);
+                }
+            } else if (toolName === 'generate_web_search_queries' || 
+                       toolName === 'generate_chat_response' || 
+                       toolName === 'generate_evaluated_chat_response') {
+                const queryEl = document.getElementById(`user_query_${toolId}`);
+                if (queryEl && queryEl.value) {
+                    parameters.user_query = queryEl.value;
+                }
+            }
+            
+            const result = await apiCall('/call-tool', 'POST', {
+                tool_name: toolName,
+                parameters: parameters
+            });
+            
+            if (result.error) {
+                resultEl.innerHTML = `<div class="error">Error: ${result.error}</div>`;
+            } else {
+                resultEl.innerHTML = JSON.stringify(result, null, 2);
+            }
+        }
+        
+        // Load initial data
+        loadStatus();
+        
+        async function sendChatMessage() {
+            const chatInput = document.getElementById('chatInput');
+            const chatResult = document.getElementById('chatResult');
+            const message = chatInput.value.trim();
+            
+            if (!message) {
+                alert('Please enter a message');
+                return;
+            }
+            
+            // Show loading
+            chatResult.style.display = 'block';
+            chatResult.innerHTML = '<div class="loading">🤖 Analyzing your message and finding the best tool...</div>';
+            
+            // Send chat request
+            const result = await apiCall('/chat', 'POST', { message: message });
+            
+            if (result.success) {
+                chatResult.innerHTML = `
+                    <div class="user-message">
+                        <strong>You:</strong> ${result.user_message}
+                    </div>
+                    <div class="intent-analysis">
+                        <strong>🧠 AI Analysis:</strong> ${result.intent_analysis.reasoning}<br>
+                        <strong>🔧 Tool Selected:</strong> ${result.intent_analysis.tool}<br>
+                        <strong>📝 Parameters:</strong> ${JSON.stringify(result.intent_analysis.parameters)}
+                    </div>
+                    <div class="result">
+                        <strong>📋 Result:</strong><br>
+                        ${JSON.stringify(result.tool_result, null, 2)}
+                    </div>
+                `;
+            } else {
+                chatResult.innerHTML = `
+                    <div class="user-message">
+                        <strong>You:</strong> ${result.user_message}
+                    </div>
+                    <div class="error">Error: ${result.error}</div>
+                `;
+            }
+            
+            // Clear input
+            chatInput.value = '';
+        }
+    </script>
+</body>
+</html>
