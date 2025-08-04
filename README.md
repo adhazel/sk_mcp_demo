@@ -15,179 +15,192 @@ If you're a developer looking to move from experimentation to real-world AI appl
 
 # Project Structure Overview
 
-This project includes backend, frontend, and MCP server components:
-
-- **src**: All backend capabilities. Python-based services using FastAPI, Semantic Kernel, and agentic AI patterns. Handles chat orchestration, product data, evaluation, and integrations.
-- **mcp_rag**: Standalone Model Context Protocol (MCP) server for RAG operations. Provides remote access to vector database operations and product data retrieval.
-- **Frontend**: React-based web application for user interaction, chat UI, and trust score visualization.
-
-Below is a high-level directory structure for backend, MCP server, and frontend codebases.
+This demo showcases a clean, modular architecture for building production-ready AI agents:
 
 ```
-├── pyproject.toml                # Poetry configuration
-├── README.md
-├── .env.local                    # Local environment variables
-├── data/                         # ChromaDB and other data storage
-│   └── product_chroma_db/        # ChromaDB instance storing product information
-│   └── names_chroma_db/          # ChromaDB instance storing names
-├── notebooks/                    # Jupyter notebooks for development
-│   ├── nb_quick_start.ipynb
-│   └── notebook_utils.py
-│   └── other notebooks
-├── mcp_rag/                      # MCP Server for RAG operations
-│   ├── pyproject.toml           # MCP server dependencies
-│   ├── README.md                # MCP server documentation
-│   ├── src/
-│   │   ├── __init__.py
-│   │   ├── server.py            # Main MCP server implementation
-│   │   ├── tools/
-│   │   │   ├── __init__.py
-│   │   │   ├── vector_tools.py  # Vector database tools
-│   │   │   └── product_tools.py # Product data tools
-│   │   ├── handlers/
-│   │   │   ├── __init__.py
-│   │   │   ├── search_handler.py # Search request handlers
-│   │   │   └── data_handler.py  # Data management handlers
-│   │   └── config/
-│   │       ├── __init__.py
-│   │       └── mcp_config.py    # MCP server configuration
-├── src/
-│   ├── __init__.py
-│   ├── main.py                   # Entry point selector (CLI/API)
-│   ├── api/
-│   │   ├── __init__.py
-│   │   ├── chat.py               # Chat API endpoints
-│   │   ├── health.py             # Health check endpoints
-│   │   └── middleware.py         # CORS, logging middleware
-│   ├── services/
-│   │   ├── __init__.py
-│   │   ├── vector_service.py     # ChromaDB operations
-│   │   ├── search_service.py     # Web search integration
-│   │   ├── evaluation_service.py # Hallucination detection
-│   │   ├── chat_service.py       # Main chatbot orchestration
-│   │   └── product_service.py    # Product data management
-│   ├── agents/
-│   │   ├── __init__.py
-│   │   ├── rag_agent.py          # RAG-specific agent
-│   │   └── evaluation_agent.py   # Evaluation agent
-│   ├── models/
-│   │   ├── __init__.py
-│   │   ├── api_models.py         # FastAPI request/response models
-│   │   ├── product.py            # Product data models
-│   │   ├── chat_message.py       # Chat message models
-│   │   └── evaluation_result.py  # Trust score models
-│   └── utils/
-│       ├── __init__.py
-│       ├── config.py             # (move existing file here)
-│       ├── semantic_kernel_setup.py # SK configuration
-│       └── logging_utils.py      # Logging utilities
-└── frontend/
-    ├── package.json
-    ├── tsconfig.json
-    ├── vite.config.ts
-    ├── index.html
-    ├── public/
-    │   └── favicon.ico
-    └── src/
-        ├── main.tsx              # React app entry
-        ├── App.tsx               # Main app component
-        ├── vite-env.d.ts        # Vite types
-        ├── components/
-        │   ├── Chat/
-        │   │   ├── ChatContainer.tsx
-        │   │   ├── ChatMessage.tsx
-        │   │   ├── ChatInput.tsx
-        │   │   ├── TrustScore.tsx
-        │   │   └── SourcesList.tsx
-        │   ├── Layout/
-        │   │   ├── Header.tsx
-        │   │   └── Layout.tsx
-        │   └── UI/
-        │       ├── Button.tsx
-        │       ├── Input.tsx
-        │       └── LoadingSpinner.tsx
-        ├── hooks/
-        │   ├── useChat.ts
-        │   └── useApi.ts
-        ├── services/
-        │   ├── api.ts            # API client
-        │   └── chatService.ts    # Chat-specific API calls
-        ├── types/
-        │   ├── chat.ts           # Chat-related types
-        │   └── api.ts            # API response types
-        ├── styles/
-        │   ├── globals.css
-        │   └── components.css
-        └── utils/
-            ├── constants.ts
-            └── helpers.ts
+sk_mcp_demo/
+├── 🎯 demo_semantic_kernel.py     # Main demo script - start here!
+├── 🌐 demo_web/                   # Web interface and API server
+├── 📊 mcp_rag/                    # MCP server for RAG operations
+└── 🧠 src/                        # Core application components
+    ├── agents/                    # AI agent implementations
+    ├── client/                    # MCP client integration
+    │   ├── core/                  # Core MCP functionality
+    │   └── plugins/               # Framework-specific integrations
+    └── utils/                     # Configuration and utilities
+```
 
+## Key Technologies
 
-# Architecture
-TBD
+- **Microsoft Semantic Kernel**: AI orchestration framework for building intelligent agents
+- **Model Context Protocol (MCP)**: Standardized protocol for connecting AI systems to data sources
+- **ChromaDB**: Vector database for semantic search and RAG operations
+- **FastAPI**: Modern web framework for building APIs
+- **Poetry**: Python dependency management
 
+## Architecture & Data Flow
 
-# Running the Application
+### Backend vs Frontend Structure
 
-## Development:
+```
+📁 src/                           🧠 Backend AI Orchestration Logic
+├── agents/sk_product_chat_agent.py   - Main AI agent using Semantic Kernel
+├── client/                           - MCP client integration layer
+│   ├── plugins/                      - Framework-specific integrations
+│   └── core/                         - Protocol-agnostic MCP functionality
+└── utils/                            - Configuration and utilities
+
+📁 demo_web/                      🌐 Frontend Web Interface
+├── orchestrator_api.py               - FastAPI web server (REST endpoints)
+└── static/orchestrator.html          - HTML/CSS/JavaScript frontend
+
+📁 mcp_rag/                       📊 RAG Data Server
+└── src/server_phase2.py              - MCP server for RAG operations
+```
+
+### Request Flow
+
+```
+User (Browser) 
+    ↓ HTTP requests (chat, tools, health)
+demo_web/orchestrator_api.py (FastAPI server)
+    ↓ Python imports & function calls  
+src/agents/sk_product_chat_agent.py (AI orchestration)
+    ↓ MCP protocol over HTTP
+mcp_rag/src/server_phase2.py (RAG operations)
+    ↓ Vector search & data retrieval
+ChromaDB + Product Database
+```
+
+**Key Benefits:**
+- 🧩 **Clean Separation**: Frontend (UI/HTTP) separate from AI logic  
+- 🔄 **Reusable Backend**: `src/` logic works with any frontend (CLI, API, etc.)
+- 🧪 **Testable**: AI orchestration can be tested independently
+- 📈 **Scalable**: Easy to add more frontends or backend agents
+
+## Core Components
+
+### 🎯 Demo Script (`demo_semantic_kernel.py`)
+The main entry point that demonstrates Semantic Kernel + MCP integration:
+- Clean, presentation-friendly code
+- Shows dynamic tool discovery and registration
+- Demonstrates health checks and tool invocation
+
+### 🧠 Semantic Kernel Integration (`src/client/plugins/`)
+- **SimpleMCPPlugin**: Clean integration between MCP and Semantic Kernel
+- **Dynamic Tool Registration**: Automatically discovers and registers MCP tools as kernel functions
+- **Demo Functions**: Built-in functions for health checks, tool listing, and direct tool calls
+
+### 📊 MCP RAG Server (`mcp_rag/`)
+Standalone MCP server providing:
+- Vector database operations (ChromaDB)
+- Product data retrieval
+- Search capabilities
+- RESTful API endpoints
+
+### 🌐 Web Interface & API (`demo_web/`)
+Combined web interface and REST API server:
+- Interactive HTML demo interface
+- Full REST API endpoints (`/chat`, `/search`, `/health`, `/tools`)
+- Direct tool calling capabilities
+- Real-time status monitoring
+
+## Getting Started
+
+### 1. Install Dependencies
 ```bash
-# CLI mode
-poetry run start --env dev
-python src/main.py --env dev
-
-# API mode  
-poetry run start --env dev --mode api
-python src/main.py --env dev --mode api
+poetry install
 ```
 
-## Production:
+### 2. Start the MCP Server
 ```bash
-# CLI mode
-poetry run start --env prod
-python src/main.py --env prod
-
-# API mode
-poetry run start --env prod --mode api
-python src/main.py --env prod --mode api
+# In terminal 1
+cd mcp_rag
+poetry run python src/server_phase2.py
 ```
 
-## Local Development:
+### 3. Run the Demo
 ```bash
-# CLI mode (default)
-poetry run start
-python src/main.py
-
-# API mode
-poetry run start --mode api
-python src/main.py --mode api
+# In terminal 2
+python demo_semantic_kernel.py
 ```
 
-> **Note**: Each environment loads its corresponding `.env` file (`.env.dev`, `.env.prod`, `.env.local`)
+### 4. Try the Web Interface
+```bash
+# Start the web server
+python demo_web/orchestrator_api.py
 
+# Open browser to: http://localhost:8001
+```
 
+## Configuration
 
+Configuration is managed through environment variables and `.env` files:
 
--------------
-SK Implementation: 
-🧠 src/ - Main Semantic Kernel Application
-src/agents/
-File	Purpose
-sk_orchestrator.py	🎯 CORE FILE - Your new ChatCompletionAgent implementation with MCPStreamableHttpPlugin
-src/utils/
-File	Purpose
-config.py	Configuration management - loads .env files, handles Azure/OpenAI settings
-caller.py	Utility for tracking function callers
-__init__.py	Python package initialization
-src/services/
-File	Purpose
-mcp_client_plugin.py	Legacy custom MCP plugin (replaced by official MCPStreamableHttpPlugin)
-src/api/
-File	Purpose
-app.py	FastAPI web server for REST API endpoints
-src/models/
-| Purpose: Data models and schemas (likely Pydantic models) |
+```bash
+# .env.local
+MCP_SERVER_URL=http://127.0.0.1:8002
+AZURE_OPENAI_ENDPOINT=your-endpoint
+AZURE_OPENAI_API_KEY=your-key
+...
+```
 
-main.py
-| Purpose: Application entry point - CLI and API server launcher |
+## Key Features Demonstrated
 
+### 🔄 Dynamic Tool Discovery
+The system automatically discovers available MCP tools and registers them as Semantic Kernel functions:
 
+```python
+# Tools are discovered and registered automatically
+plugin = await create_mcp_plugin(kernel)
+tools = plugin.get_primitive_names("tool")
+```
+
+### 🎯 Semantic Kernel Integration
+Clean integration that makes MCP tools available as native kernel functions:
+
+```python
+@kernel_function(name="mcp_health_check")
+async def mcp_health_check(self) -> str:
+    """Check MCP server health and connection status"""
+```
+
+### 🛠️ Flexible Architecture
+Modular design that separates concerns:
+- **Core MCP Logic**: Protocol handling, discovery, execution
+- **Framework Integration**: Semantic Kernel-specific implementations
+- **Configuration**: Centralized environment-based config
+
+## MCP Client Architecture (`src/client/`)
+
+```
+client/
+├── core/           # Protocol-agnostic MCP functionality
+│   ├── config.py   # MCP configuration management
+│   ├── session.py  # MCP session handling
+│   ├── discovery.py# Tool/resource discovery
+│   └── executor.py # Tool execution logic
+└── plugins/        # Framework-specific integrations
+    ├── base.py     # Abstract base for all frameworks
+    └── semantic_kernel.py  # Semantic Kernel integration
+```
+## Next Steps
+
+**Explore the Demo**: Run `demo_semantic_kernel.py` to see the integration in action
+
+## Why This Matters
+
+This project demonstrates how to build **production-ready agentic AI** that goes beyond simple chatbots:
+
+- ✅ **Real-world Integration**: Connects to multiple data sources dynamically or via agentic orchestration.
+- ✅ **Scalable Architecture**: Clean separation of concerns
+- ✅ **Framework Agnostic**: Core MCP logic works with any AI framework
+- ✅ **Demo-Friendly**: Clear, understandable code for demonstration purposes
+
+Ready to build smarter AI agents? Start with `demo_semantic_kernel.py` and see the magic happen! 🎉
+
+## Current Limitations & TODOs
+
+This demo provides an entry point for agentic AI development, but several areas are planned for improvement. You're welcome to use and extend this project under the terms specified in [LICENSE.txt](LICENSE.txt).
+
+**⚠️ Note:** In particular, the Web interface (`demo_web/`) was rapidly prototyped and needs significant refactoring. In addition, security mechanisms need to be considered fully.

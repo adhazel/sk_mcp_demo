@@ -81,6 +81,9 @@
             padding: 10px;
             margin: 5px 0;
             border-radius: 6px;
+            line-height: 1.4;
+            white-space: pre-wrap; /* Preserve whitespace and wrap text */
+            word-wrap: break-word;
         }
         
         .user-message {
@@ -94,6 +97,7 @@
             background-color: #e9ecef;
             color: #333;
             margin-right: 20%;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Courier New', monospace;
         }
         
         .orchestrator-info {
@@ -308,44 +312,6 @@
             align-items: center;
             justify-content: center;
         }
-        
-        .orchestrator-status {
-            background: #e7f3ff;
-            border: 1px solid #b3d9ff;
-            border-radius: 6px;
-            padding: 15px;
-            margin: 15px 0;
-        }
-        
-        .orchestrator-status h4 {
-            margin-top: 0;
-            color: #0066cc;
-        }
-        
-        .status-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 10px;
-            margin-top: 10px;
-        }
-        
-        .status-item {
-            background: white;
-            padding: 10px;
-            border-radius: 4px;
-            border: 1px solid #ddd;
-        }
-        
-        .status-label {
-            font-weight: bold;
-            color: #666;
-            font-size: 12px;
-        }
-        
-        .status-value {
-            color: #333;
-            font-size: 14px;
-        }
     </style>
 </head>
 <body>
@@ -354,16 +320,11 @@
         <p class="subtitle">Advanced MCP integration using Semantic Kernel Agents</p>
         
         <div class="architecture">
-            SemanticKernelOrchestrator → ChatCompletionAgent → MCPStreamableHttpPlugin → MCP Server
+            ProductChatAgent → ChatCompletionAgent → MCPStreamableHttpPlugin → MCP Server
         </div>
         
         <div id="status" class="status">
             <span id="status-text">Checking connection...</span>
-        </div>
-        
-        <div id="orchestrator-status" class="orchestrator-status" style="display: none;">
-            <h4>🎼 Orchestrator Status</h4>
-            <div id="status-details" class="status-grid"></div>
         </div>
         
         <div class="chat-section">
@@ -373,9 +334,6 @@
             <div id="chat-container" class="chat-container">
                 <div class="message assistant-message">
                     <strong>🤖 MCP Orchestrator:</strong> Hello! I'm powered by Semantic Kernel Agents with intelligent MCP tool orchestration. Ask me anything about products, or request complex research that combines internal knowledge with web search.
-                    <div class="orchestrator-info">
-                        <strong>Available Capabilities:</strong> Product search, web research, RAG response generation, accuracy evaluation, and intelligent tool coordination.
-                    </div>
                 </div>
             </div>
             
@@ -449,41 +407,13 @@
                 
                 const statusElement = document.getElementById('status');
                 const statusText = document.getElementById('status-text');
-                const orchestratorStatus = document.getElementById('orchestrator-status');
-                const statusDetails = document.getElementById('status-details');
                 
                 if (health.status === 'healthy') {
                     statusElement.className = 'status healthy';
                     statusText.textContent = `✅ Connected to MCP Server (${health.mcp_server_health})`;
-                    
-                    // Show orchestrator status
-                    orchestratorStatus.style.display = 'block';
-                    statusDetails.innerHTML = '';
-                    
-                    const orchestratorInfo = health.orchestrator_status;
-                    const statusItems = [
-                        { label: 'Orchestrator', value: orchestratorInfo.orchestrator || 'Unknown' },
-                        { label: 'AI Service', value: orchestratorInfo.ai_service || 'Unknown' },
-                        { label: 'Functions Available', value: orchestratorInfo.functions_available || 0 },
-                        { label: 'Agent Created', value: orchestratorInfo.agent_created ? '✅' : '❌' },
-                        { label: 'MCP Plugin', value: orchestratorInfo.mcp_plugin_created ? '✅' : '❌' },
-                        { label: 'Status', value: orchestratorInfo.status || 'Unknown' }
-                    ];
-                    
-                    statusItems.forEach(item => {
-                        const statusItem = document.createElement('div');
-                        statusItem.className = 'status-item';
-                        statusItem.innerHTML = `
-                            <div class="status-label">${item.label}</div>
-                            <div class="status-value">${item.value}</div>
-                        `;
-                        statusDetails.appendChild(statusItem);
-                    });
-                    
                 } else {
                     statusElement.className = 'status unhealthy';
                     statusText.textContent = `❌ Connection failed: ${health.error || 'Unknown error'}`;
-                    orchestratorStatus.style.display = 'none';
                 }
             } catch (error) {
                 console.error('Health check error:', error);
@@ -491,7 +421,6 @@
                 const statusText = document.getElementById('status-text');
                 statusElement.className = 'status unhealthy';
                 statusText.textContent = `❌ Cannot connect to server: ${error.message}`;
-                document.getElementById('orchestrator-status').style.display = 'none';
             }
         }
 
@@ -783,20 +712,22 @@
                 
                 if (result.success) {
                     let assistantMessage = '';
+                    
+                    // Extract the actual response content, not the JSON structure
                     if (result.tool_result && result.tool_result.response) {
-                        if (typeof result.tool_result.response === 'string') {
-                            assistantMessage = result.tool_result.response;
-                        } else {
-                            assistantMessage = JSON.stringify(result.tool_result.response, null, 2);
-                        }
+                        assistantMessage = result.tool_result.response;
+                    } else if (result.tool_result && typeof result.tool_result === 'string') {
+                        assistantMessage = result.tool_result;
+                    } else if (result.response) {
+                        assistantMessage = result.response;
+                    } else if (result.message) {
+                        assistantMessage = result.message;
                     } else {
+                        // Fallback to JSON if we can't find a clean text response
                         assistantMessage = JSON.stringify(result.tool_result, null, 2);
                     }
                     
-                    addMessage(assistantMessage, 'assistant', {
-                        orchestrator: result.orchestrator || 'SemanticKernelOrchestrator',
-                        evaluation: useEvaluation ? 'Enabled' : 'Disabled'
-                    });
+                    addMessage(assistantMessage, 'assistant');
                 } else {
                     addMessage(`Error: ${result.error}`, 'assistant', { error: true });
                 }
@@ -816,7 +747,17 @@
             message.className = `message ${sender}-message`;
             
             const senderLabel = sender === 'user' ? '👤 You' : '🤖 MCP Orchestrator';
-            let messageContent = `<strong>${senderLabel}:</strong> ${text}`;
+            
+            // Ensure text is a string before formatting
+            const textString = typeof text === 'string' ? text : JSON.stringify(text, null, 2);
+            
+            // Convert newlines to HTML line breaks and preserve formatting
+            const formattedText = textString
+                .replace(/\n/g, '<br>')
+                .replace(/\t/g, '&nbsp;&nbsp;&nbsp;&nbsp;')
+                .replace(/  /g, '&nbsp;&nbsp;'); // Preserve multiple spaces
+            
+            let messageContent = `<strong>${senderLabel}:</strong> ${formattedText}`;
             
             if (metadata.orchestrator && !metadata.error) {
                 messageContent += `<div class="orchestrator-info">

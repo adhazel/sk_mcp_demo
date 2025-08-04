@@ -1,12 +1,11 @@
 """
 Orchestrator Web Demo API
-Advanced FastAPI server using SemanticKernelOrchestrator with web interface.
+Advanced FastAPI server using ProductChatAgent with web interface.
 """
 
 import logging
 from typing import Dict, Any, Optional
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,7 +13,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from src.utils.config import Config
-from src.agents.sk_orchestrator import SemanticKernelOrchestrator
+from src.agents.sk_product_chat_agent import ProductChatAgent
 from src.client.core.config import MCPConfig
 from src.client.core.session import MCPSession
 from src.client.core.discovery import MCPDiscovery
@@ -24,7 +23,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Global instances
-orchestrator: Optional[SemanticKernelOrchestrator] = None
+orchestrator: Optional[ProductChatAgent] = None
 mcp_session: Optional[MCPSession] = None
 mcp_discovery: Optional[MCPDiscovery] = None
 
@@ -40,9 +39,9 @@ async def lifespan(app: FastAPI):
         config = Config()
         logger.info(f"🔧 Config initialized with MCP server URL: {config.mcp_server_url}")
         
-        # Initialize SemanticKernelOrchestrator for intelligent orchestration
-        orchestrator = SemanticKernelOrchestrator(config)
-        logger.info("✅ SemanticKernelOrchestrator initialized")
+        # Initialize ProductChatAgent for intelligent orchestration
+        orchestrator = ProductChatAgent(config)
+        logger.info("✅ ProductChatAgent initialized")
         
         # Initialize MCP client for tools discovery (supplemental)
         try:
@@ -83,7 +82,7 @@ async def lifespan(app: FastAPI):
         try:
             if orchestrator and hasattr(orchestrator, 'cleanup'):
                 await orchestrator.cleanup()
-                logger.info("✅ SemanticKernelOrchestrator cleanup completed")
+                logger.info("✅ ProductChatAgent cleanup completed")
         except Exception as e:
             logger.error(f"❌ Error during orchestrator cleanup: {e}")
         
@@ -103,7 +102,7 @@ def create_app(config: Optional[Config] = None) -> FastAPI:
     
     app = FastAPI(
         title="MCP Orchestrator Web Demo",
-        description="Advanced web demo using SemanticKernelOrchestrator with ChatCompletionAgent and MCPStreamableHttpPlugin",
+        description="Advanced web demo using ProductChatAgent with ChatCompletionAgent and MCPStreamableHttpPlugin",
         version="2.0.0",
         lifespan=lifespan
     )
@@ -188,7 +187,7 @@ async def health_check():
     global orchestrator, mcp_discovery, mcp_session
     
     if not orchestrator:
-        raise HTTPException(status_code=503, detail="SemanticKernelOrchestrator not initialized")
+        raise HTTPException(status_code=503, detail="ProductChatAgent not initialized")
     
     try:
         orchestrator_status = orchestrator.get_status()
@@ -287,7 +286,7 @@ async def intelligent_chat(request: ChatRequest) -> Dict[str, Any]:
                         "error": "No available chat methods on orchestrator"
                     },
                     "success": False,
-                    "orchestrator": "SemanticKernelOrchestrator"
+                    "orchestrator": "ProductChatAgent"
                 }
         else:
             # Use the orchestrator's process_question method for intelligent handling
@@ -305,11 +304,11 @@ async def intelligent_chat(request: ChatRequest) -> Dict[str, Any]:
                 "user_message": request.message,
                 "intent_analysis": {
                     "tool": "orchestrated_response",
-                    "reasoning": "SemanticKernelOrchestrator processing failed"
+                    "reasoning": "ProductChatAgent processing failed"
                 },
                 "tool_result": result,
                 "success": False,
-                "orchestrator": "SemanticKernelOrchestrator"
+                "orchestrator": "ProductChatAgent"
             }
         
         # Format the response for the web interface
@@ -317,11 +316,11 @@ async def intelligent_chat(request: ChatRequest) -> Dict[str, Any]:
             "user_message": request.message,
             "intent_analysis": {
                 "tool": "orchestrated_response",
-                "reasoning": "Using SemanticKernelOrchestrator for intelligent tool selection and response generation"
+                "reasoning": "Using ProductChatAgent for intelligent tool selection and response generation"
             },
             "tool_result": result,
             "success": True,
-            "orchestrator": "SemanticKernelOrchestrator"
+            "orchestrator": "ProductChatAgent"
         }
         
         return formatted_result
@@ -342,7 +341,7 @@ async def intelligent_chat(request: ChatRequest) -> Dict[str, Any]:
                 "error": str(e)
             },
             "success": False,
-            "orchestrator": "SemanticKernelOrchestrator"
+            "orchestrator": "ProductChatAgent"
         }
 
 
@@ -538,7 +537,7 @@ async def api_info():
     return {
         "message": "MCP Orchestrator Web Demo API",
         "version": "2.0.0",
-        "approach": "SemanticKernelOrchestrator → ChatCompletionAgent → MCPStreamableHttpPlugin → MCP Server",
+        "approach": "ProductChatAgent → ChatCompletionAgent → MCPStreamableHttpPlugin → MCP Server",
         "endpoints": {
             "GET /": "Web interface",
             "GET /health": "System health check",
@@ -564,7 +563,7 @@ if __name__ == "__main__":
     print("🚀 Starting MCP Orchestrator Web Demo...")
     print("📱 Open your browser to: http://localhost:8001")
     print("🔧 Make sure your MCP server is running on http://127.0.0.1:8002")
-    print("🧠 Using: SemanticKernelOrchestrator → ChatCompletionAgent → MCPStreamableHttpPlugin")
+    print("🧠 Using: ProductChatAgent → ChatCompletionAgent → MCPStreamableHttpPlugin")
     print()
     
     uvicorn.run(

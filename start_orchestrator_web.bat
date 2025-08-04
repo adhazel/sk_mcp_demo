@@ -1,7 +1,7 @@
 @echo off
 echo Starting MCP Orchestrator Web Demo...
 echo.
-echo Architecture: SemanticKernelOrchestrator → ChatCompletionAgent → MCPStreamableHttpPlugin → MCP Server
+echo Architecture: ProductChatAgent → ChatCompletionAgent → MCPStreamableHttpPlugin → MCP Server
 echo.
 echo Make sure your MCP server is running on http://127.0.0.1:8002
 echo.

@@ -1,6 +1,7 @@
 """
-Semantic Kernel Agentic Orchestrator
-This orchestrator uses Semantic Kernel Agents to coordinate calls to the MCP RAG server.
+Semantic Kernel Product Chat Agent
+This agent uses Semantic Kernel Agents to provide intelligent product assistance via MCP RAG server.
+Specializes in product search, recommendations, and Q&A interactions.
 """
 
 import json
@@ -25,15 +26,15 @@ from ..client.plugins.semantic_kernel import create_mcp_plugin
 from ..utils.config import Config
 
 
-class SemanticKernelOrchestrator:
+class ProductChatAgent:
     """
-    An agentic orchestrator that uses Semantic Kernel Agents to coordinate
-    calls to the MCP RAG server for intelligent question answering.
+    A specialized chat agent that provides intelligent product assistance using Semantic Kernel Agents.
+    Coordinates calls to the MCP RAG server for product search, recommendations, and Q&A interactions.
     """
     
     def __init__(self, config: Optional[Config] = None):
         """
-        Initialize the Semantic Kernel orchestrator.
+        Initialize the Product Chat Agent.
         
         Args:
             config: Configuration object. If None, will create a new one.
@@ -51,7 +52,7 @@ class SemanticKernelOrchestrator:
         self.agent = None
         self.mcp_plugin = None
         
-        self.logger.info("✅ Semantic Kernel Orchestrator initialized")
+        self.logger.info("✅ Product Chat Agent initialized")
 
     async def _get_or_create_agent(self) -> ChatCompletionAgent:
         """
@@ -490,7 +491,7 @@ IMPORTANT INSTRUCTIONS:
 
     def get_status(self) -> Dict[str, Any]:
         """
-        Get the current status of the orchestrator.
+        Get the current status of the Product Chat Agent.
         
         Returns:
             Status information
@@ -513,7 +514,7 @@ IMPORTANT INSTRUCTIONS:
                     function_count += 1
         
         return {
-            "orchestrator": "SemanticKernelOrchestrator",
+            "orchestrator": "ProductChatAgent",
             "approach": "ChatCompletionAgent with MCPStreamableHttpPlugin",
             "mcp_server_url": self.config.mcp_server_url,
             "ai_service": self.config.openai_api_type,
