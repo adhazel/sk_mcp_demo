@@ -20,14 +20,20 @@ class SimpleMCPPlugin(BaseMCPPlugin):
     MCP servers and Semantic Kernel, perfect for demos and tutorials.
     """
     
-    def __init__(self, kernel: Kernel, server_url: str = "http://127.0.0.1:8002"):
+    def __init__(self, kernel: Kernel, server_url: Optional[str] = None):
         """
         Initialize the Semantic Kernel MCP plugin.
         
         Args:
             kernel: The Semantic Kernel instance
-            server_url: URL of the MCP server
+            server_url: URL of the MCP server (optional, defaults to config value)
         """
+        # Use config if no server_url provided
+        if server_url is None:
+            from ...utils.config import Config
+            config = Config()
+            server_url = config.mcp_server_url
+            
         super().__init__(server_url)
         self.kernel = kernel
         self.registered_functions: List[str] = []
@@ -186,7 +192,7 @@ Total Primitives: {health['primitives']['total']}
 
 
 # Convenience function for demo setup
-async def create_mcp_plugin(kernel: Kernel, server_url: str = "http://127.0.0.1:8002") -> SimpleMCPPlugin:
+async def create_mcp_plugin(kernel: Kernel, server_url: Optional[str] = None) -> SimpleMCPPlugin:
     """
     Create and initialize an MCP plugin for Semantic Kernel.
     
@@ -194,7 +200,7 @@ async def create_mcp_plugin(kernel: Kernel, server_url: str = "http://127.0.0.1:
     
     Args:
         kernel: The Semantic Kernel instance
-        server_url: URL of the MCP server
+        server_url: URL of the MCP server (optional, defaults to config value)
         
     Returns:
         Initialized SimpleMCPPlugin instance

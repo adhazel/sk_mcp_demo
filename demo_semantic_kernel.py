@@ -18,8 +18,14 @@ class SemanticKernelMCPDemo:
     in a clean, presentation-friendly way.
     """
     
-    def __init__(self, server_url: str = "http://127.0.0.1:8002"):
+    def __init__(self, server_url: str = None):
         """Initialize the demo."""
+        # Use config if no server_url provided
+        if server_url is None:
+            from src.utils.config import Config
+            config = Config()
+            server_url = config.mcp_server_url
+            
         self.server_url = server_url
         self.kernel = None
         self.mcp_plugin = None

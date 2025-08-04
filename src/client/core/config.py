@@ -4,29 +4,39 @@ Clean configuration management for MCP clients.
 """
 
 from dataclasses import dataclass
+from ...utils.config import Config
 
 
 @dataclass
 class MCPConfig:
     """Configuration for MCP client operations."""
     
-    # Server connection
-    server_url: str = "http://127.0.0.1:8002"
-    request_timeout: int = 30
-    
-    # MCP protocol
-    protocol_version: str = "2024-11-05"
-    client_name: str = "semantic-kernel-mcp-client"
-    client_version: str = "1.0.0"
-    
-    # Capabilities
-    supports_resources: bool = True
-    supports_tools: bool = True
-    supports_prompts: bool = True
-    
-    # Logging
-    log_level: str = "INFO"
-    debug_mode: bool = False
+    def __init__(self, server_url: str = None):
+        """Initialize MCP config, using main config if server_url not provided."""
+        if server_url is None:
+            main_config = Config()
+            server_url = main_config.mcp_server_url
+            
+        # Server connection
+        self.server_url: str = server_url
+        self.request_timeout: int = 30
+        
+        # MCP protocol
+        self.protocol_version: str = "2024-11-05"
+        self.client_name: str = "semantic-kernel-mcp-client"
+        self.client_version: str = "1.0.0"
+        
+        # Capabilities
+        self.supports_resources: bool = True
+        self.supports_tools: bool = True
+        self.supports_prompts: bool = True
+        
+        # Logging
+        self.log_level: str = "INFO"
+        self.debug_mode: bool = False
+        
+        # Validate after initialization
+        self.__post_init__()
     
     def __post_init__(self):
         """Validate configuration after initialization."""
