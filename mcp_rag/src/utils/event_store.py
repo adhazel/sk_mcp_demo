@@ -1,0 +1,125 @@
+"""
+NAME: event_store.py
+DESCRIPTION: In-memory event store for demonstration purposes.
+
+AUTHOR: April Hazel
+CREDIT: Derived from: 
+    https://github.com/modelcontextprotocol/python-sdk/blob/959d4e39ae13e45d3059ec6d6ca82fb231039a91/examples/servers/simple-streamablehttp/mcp_simple_streamablehttp/event_store.py
+HISTORY:
+    - 20240730: Initial implementation
+"""
+
+
+import logging
+import time
+from collections import deque
+from dataclasses import dataclass
+from uuid import uuid4
+
+from mcp.server.streamable_http import (
+    EventCallback,
+    EventId,
+    EventMessage,
+    EventStore,
+    StreamId,
+)
+from mcp.types import JSONRPCMessage
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class EventEntry:
+    """An event entry with metadata."""
+
+    event_id: EventId
+    stream_id: StreamId
+    message: JSONRPCMessage
+    timestamp: float  # Unix timestamp when the event was created
+
+
+class InMemoryEventStore(EventStore):
+    """Simple in-memory event store for testing and demos."""
+
+    def __init__(self, max_events_per_stream: int = 100):
+        """Set up the event store with memory limits."""
+        self.max_events_per_stream = max_events_per_stream
+        # for maintaining last N events per stream
+        self.streams: dict[StreamId, deque[EventEntry]] = {}
+        # event_id -> EventEntry for quick lookup
+        self.event_index: dict[EventId, EventEntry] = {}
+
+    async def store_event(
+        self, stream_id: StreamId, message: JSONRPCMessage
+    ) -> EventId:
+        """Stores an event with a generated event ID."""
+        event_id = str(uuid4())
+        event_entry = EventEntry(
+            event_id=event_id, 
+            stream_id=stream_id, 
+            message=message,
+            timestamp=time.time()  # Set current timestamp
+        )
+
+        # Get or create deque for this stream
+        if stream_id not in self.streams:
+            self.streams[stream_id] = deque(maxlen=self.max_events_per_stream)
+
+        # If deque is full, the oldest event will be automatically removed
+        # We need to remove it from the event_index as well
+        if len(self.streams[stream_id]) == self.max_events_per_stream:
+            oldest_event = self.streams[stream_id][0]
+            self.event_index.pop(oldest_event.event_id, None)
+
+        # Add new event
+        self.streams[stream_id].append(event_entry)
+        self.event_index[event_id] = event_entry
+
+        return event_id
+
+    async def replay_events_after(
+        self,
+        last_event_id: EventId,
+        send_callback: EventCallback,
+    ) -> StreamId | None:
+        """Replays events that occurred after the specified event ID."""
+        if last_event_id not in self.event_index:
+            logger.warning(f"Event ID {last_event_id} not found in store")
+            return None
+
+        # Get the stream and find events after the last one
+        last_event = self.event_index[last_event_id]
+        stream_id = last_event.stream_id
+        stream_events = self.streams.get(last_event.stream_id, deque())
+
+        # Events in deque are already in chronological order
+        found_last = False
+        for event in stream_events:
+            if found_last:
+                await send_callback(EventMessage(event.message, event.event_id))
+            elif event.event_id == last_event_id:
+                found_last = True
+
+        return stream_id
+
+    def get_last_events(self, count: int = 5) -> list[EventEntry]:
+        """
+        Get the last N events across all streams, sorted by timestamp (most recent first).
+        
+        Args:
+            count: Number of events to return (default: 5)
+            
+        Returns:
+            List of EventEntry objects sorted by timestamp descending
+        """
+        # Collect all events from all streams
+        all_events = []
+        for stream_id, events in self.streams.items():
+            for event in events:
+                all_events.append(event)
+        
+        # Sort by timestamp descending (most recent first)
+        all_events.sort(key=lambda event: event.timestamp, reverse=True)
+
+        # Return the last N events
+        return all_events[:count]

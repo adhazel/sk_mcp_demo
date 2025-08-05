@@ -1,0 +1,43 @@
+[project]
+name = "mcp-rag-server"
+version = "0.1.0"
+description = "MCP server for RAG operations with ChromaDB and web search"
+authors = [
+    {name = "April Hazel"}
+]
+license = {text = "mit"}
+readme = "README.md"
+requires-python = "==3.12.10"
+dependencies = [
+    "fastapi>=0.115.12",
+    "python-dotenv>=1.1.0",
+    "openai (>=1.97.1,<2.0.0)", # Required by chromadb for embedding functions
+    "uvicorn (>=0.35.0,<0.36.0)",
+    "mcp[cli] (>=1.12.2,<2.0.0)",
+    "starlette (>=0.47.2,<0.48.0)",
+    "anyio (>=4.9.0,<5.0.0)",
+    "pydantic (>=2.11.7,<3.0.0)",
+    "chromadb (>=1.0.15,<2.0.0)",
+    "pandas (>=2.3.1,<3.0.0)",
+    "mermaid (>=0.3.2,<0.4.0)",
+    "aiohttp (>=3.12.15,<4.0.0)",
+]
+
+[tool.poetry]
+packages = [{include = "src"}]
+
+[tool.poetry.group.dev.dependencies]
+jupyter = "^1.0.0"
+jupyterlab = "^4.0.0"
+ipykernel = "^6.25.0"
+
+[project.scripts]
+mcp-rag-server = "src:main"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+# Ignore E402 - module level import not at top of file
+ignore = ["E402"]
