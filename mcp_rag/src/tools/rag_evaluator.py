@@ -4,11 +4,11 @@ Evaluate RAG response quality and accuracy.
 import logging
 from typing import Dict, Any, TYPE_CHECKING
 from openai import AzureOpenAI
-from src.utils.mcp_config import Config
-from src.models import EvaluationResult
+from utils import McpConfig
+from models import EvaluationResult
 
 if TYPE_CHECKING:
-    from src.tools.rag_generator import RAGResponseGenerator
+    from tools.rag_generator import RAGResponseGenerator
 
 
 logger = logging.getLogger(__name__)
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 class RAGEvaluator:
     """Evaluate RAG response quality and accuracy."""
     
-    def __init__(self, config: Config, rag_generator: 'RAGResponseGenerator' = None):
+    def __init__(self, config: McpConfig, rag_generator: 'RAGResponseGenerator' = None):
         self.config = config
         self.aoai_client = AzureOpenAI(
             api_key=config.azure_openai_api_key,

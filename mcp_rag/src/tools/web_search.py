@@ -6,15 +6,15 @@ import logging
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 import aiohttp
-from src.utils.mcp_config import Config
-from src.models import SearchResult, SearchResults, GeneratedSearchQueries
+from utils import McpConfig
+from models import SearchResult, SearchResults, GeneratedSearchQueries
 
 logger = logging.getLogger(__name__)
 
 class WebSearcher:
     """Search the web using SerpAPI Bing."""
-    
-    def __init__(self, config: Config):
+
+    def __init__(self, config: McpConfig):
         self.config = config
         self.base_url = "https://serpapi.com/search"
         # Create Azure OpenAI client for query generation
@@ -303,7 +303,7 @@ Should we search the web for additional information or is the internal context f
                     return results[:n_results_per_search] if len(results) > n_results_per_search else results
 
         except asyncio.TimeoutError:
-            logger.warning(f"Search timeout for query '{query[:50]}...'")
+            logger.warning(f"Search has timed out for query '{query[:50]}...'")
             return []
         except aiohttp.ClientError as e:
             logger.warning(f"HTTP error searching for '{query[:50]}...': {e}")
@@ -312,7 +312,7 @@ Should we search the web for additional information or is the internal context f
             logger.error(f"Unexpected error searching for '{query[:50]}...': {e}")
             return []
 
-    async def search_serpapi_bing_with_generated_queries(self, user_query: str, internal_context: Optional[list] = None, n_results_per_search: int = 5) -> list:
+    async def search_bing_with_chat_and_context(self, user_query: str, internal_context: Optional[list] = None, n_results_per_search: int = 5) -> list:
         """
         Execute multiple web searches using generated queries.
         
@@ -350,7 +350,7 @@ Should we search the web for additional information or is the internal context f
                 task = asyncio.create_task(
                     asyncio.wait_for(
                         self.search_serpapi_bing_with_query(search_query, n_results_per_search),
-                        timeout=12.0  # 12 second timeout per search
+                        timeout=20.0  # 20 second timeout per search
                     )
                 )
                 search_tasks.append((i, task))
@@ -367,7 +367,7 @@ Should we search the web for additional information or is the internal context f
             for (query_index, _), result in zip(search_tasks, task_results):
                 if isinstance(result, Exception):
                     query_text = sorted_queries[query_index].get('search_query', 'unknown')
-                    logger.warning(f"Search failed for query '{query_text}': {result}")
+                    logger.warning(f"Skipping web search for query '{query_text}': {result}")
                     continue
                 
                 # Add results with updated metadata

@@ -14,7 +14,7 @@ import time
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root / "src"))
 
-from utils.mcp_config import Config
+from utils import McpConfig
 from tools.chroma_search import ChromaDBSearcher  
 from tools.web_search import WebSearcher
 from tools.rag_generator import RAGResponseGenerator
@@ -26,7 +26,7 @@ async def test_components():
     try: 
         start = time.time()
         print("🔧⌛ Configuration loading...")
-        config = Config(environment="local")
+        config = McpConfig(environment="local")
         elapsed = time.time() - start
         print(f"🔧✅ Configuration loaded: {config.environment} (Time: {elapsed:.2f}s)")
     except Exception as e:
@@ -97,7 +97,7 @@ async def test_components():
         start = time.time()
         print("🌐⌛ Web searching in progress ...")
         web_searcher = WebSearcher(config)
-        web_searcher_results = await web_searcher.search_serpapi_bing_with_generated_queries(
+        web_searcher_results = await web_searcher.search_bing_with_chat_and_context(
             user_query="hiking",
             internal_context=chroma_results,
             n_results_per_search=3
@@ -126,13 +126,15 @@ async def test_components():
     try: 
         start = time.time()
         print("👩‍🔬⌛ RAG response with evaluation in progress ...")
-        rag_with_evaluation = await rag_generator.generate_evaluated_chat_response(
-            user_query= "tell me about hiking",
-            n_chroma_results = 2,
-            n_web_results = 3,
-            collection_name= "product_collection")
+        rag_evaluator = RAGEvaluator(config)
+        evaluation = await rag_evaluator.evaluate_rag_response(
+            rag_response = rag_results
+        )
         elapsed = time.time() - start
-        print(f"👩‍🔬✅ RAG response with evaluation succeeded: evaluation score: {rag_with_evaluation['evaluation']['accuracy_score']} (Time: {elapsed:.2f}s)")
+        
+        print(f"👩‍🔬✅ RAG response with evaluation succeeded: evaluation score: {evaluation['accuracy_score']} (Time: {elapsed:.2f}s)")
+        
+
     except Exception as e:
         print(f"👩‍🔬❌ Error in RAG response with evaluation test: {e}")
         return

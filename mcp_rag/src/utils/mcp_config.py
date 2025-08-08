@@ -74,7 +74,7 @@ def _get_valid_env_value(key: str, default: str = None) -> str:
         return None
     return value
 
-class Config:
+class McpConfig:
     """Load and manage application configuration from environment."""
     
     def __init__(self, environment: str = None, project_name: str = "mcp_rag"):

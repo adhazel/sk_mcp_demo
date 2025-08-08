@@ -642,16 +642,35 @@
         function showResults(toolName, parameters, result) {
             const resultsPanel = document.getElementById('results-panel');
             const timestamp = new Date().toLocaleTimeString();
+  
+
+        let parsedResult;
+        try {
+        parsedResult = typeof result.result === 'string' ? JSON.parse(result.result) : result.result;
+        } catch (e) {
+        parsedResult = result.result; // fallback if parsing fails
+        }
+
+        const resultHTML = `
+        <div class="tool-output">
+            <div class="tool-output-header">🔧 ${toolName} - ${timestamp}</div>
+            <div><strong>Parameters:</strong></div>
+            <pre>${JSON.stringify(parameters, null, 2)}</pre>
+            <div style="margin-top: 15px;"><strong>Result:</strong></div>
+            <pre style="word-wrap: break-word; white-space: pre-wrap;">${JSON.stringify(parsedResult, null, 2)}</pre>
+        </div>
+        `;
             
-            const resultHTML = `
-                <div class="tool-output">
-                    <div class="tool-output-header">🔧 ${toolName} - ${timestamp}</div>
-                    <div><strong>Parameters:</strong></div>
-                    <div>${JSON.stringify(parameters, null, 2)}</div>
-                    <div style="margin-top: 15px;"><strong>Result:</strong></div>
-                    <div>${JSON.stringify(result, null, 2)}</div>
-                </div>
-            `;
+
+            // const resultHTML = `
+            //     <div class="tool-output">
+            //         <div class="tool-output-header">🔧 ${toolName} - ${timestamp}</div>
+            //         <div><strong>Parameters:</strong></div>
+            //         <div>${JSON.stringify(parameters, null, 2)}</div>
+            //         <div style="margin-top: 15px;"><strong>Result:</strong></div>
+            //         <div>${JSON.stringify(result, null, 2)}</div>
+            //     </div>
+            // `;
             
             resultsPanel.innerHTML = resultHTML;
         }

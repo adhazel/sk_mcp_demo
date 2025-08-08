@@ -7,15 +7,15 @@ from typing import List, Dict, Any
 from pathlib import Path
 import chromadb
 from chromadb.utils import embedding_functions
-from src.utils.mcp_config import Config
-from src.models import SearchResult, SearchResults
+from utils import McpConfig
+from models import SearchResult, SearchResults
 
 logger = logging.getLogger(__name__)
 
 class ChromaDBSearcher:
     """Search internal product database using ChromaDB."""
     
-    def __init__(self, config: Config):
+    def __init__(self, config: McpConfig):
         self.config = config
         self._client = None
         self._collection = None
