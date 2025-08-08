@@ -8,13 +8,10 @@ This module creates comprehensive answers by:
 - Optionally evaluating response accuracy
 """
 import logging
-from typing import Dict, Any, List, TYPE_CHECKING
-from src.utils.mcp_config import Config
-from src.tools.chroma_search import ChromaDBSearcher
-from src.tools.web_search import WebSearcher
-
-if TYPE_CHECKING:
-    from src.tools.rag_evaluator import RAGEvaluator
+from typing import Dict, Any, List
+from utils import McpConfig
+from tools.chroma_search import ChromaDBSearcher
+from tools.web_search import WebSearcher
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +19,7 @@ logger = logging.getLogger(__name__)
 class RAGResponseGenerator:
     """Generate comprehensive answers using internal database and web search."""
     
-    def __init__(self, config: Config):
+    def __init__(self, config: McpConfig):
         """
         Initialize the RAG response generator.
         
@@ -34,15 +31,6 @@ class RAGResponseGenerator:
         self.web_searcher = WebSearcher(config)
         self.aoai_client = config.get_llm()
         self._rag_evaluator = None  # Lazy initialization
-    
-    @property
-    def rag_evaluator(self) -> 'RAGEvaluator':
-        """Get the RAG evaluator for response quality assessment."""
-        if self._rag_evaluator is None:
-            # Import here to avoid circular imports
-            from src.tools.rag_evaluator import RAGEvaluator
-            self._rag_evaluator = RAGEvaluator(self.config)
-        return self._rag_evaluator
 
     def format_context_for_llm(self, context: List[Dict[str, Any]] = None) -> str:
         """Format search results for the AI to use."""
@@ -95,11 +83,10 @@ CONTEXT:"""
         n_chroma_results: int = 5,
         n_web_results: int = 5,
         collection_name: str = "product_collection",
-        include_full_context: bool = False
+        include_full_context: bool = True
     ) -> Dict[str, Any]:
         """
         Internal method that handles the core RAG generation logic.
-        Used by both generate_chat_response and generate_evaluated_chat_response.
         
         Args:
             user_query: User's question
@@ -121,7 +108,7 @@ CONTEXT:"""
             logger.info(f"1️⃣ Internal search found {len(internal_context)} results")
             
             # Step 2: Perform web searches (generates queries internally)
-            external_context = await self.web_searcher.search_serpapi_bing_with_generated_queries(
+            external_context = await self.web_searcher.search_bing_with_chat_and_context(
                 user_query=user_query,
                 internal_context=internal_context,
                 n_results_per_search=n_web_results
@@ -174,8 +161,8 @@ CONTEXT:"""
             # Add full context only if needed (for evaluation)
             if include_full_context:
                 result.update({
-                    "formatted_context": formatted_context,
-                    "combined_context": combined_context
+                    "formatted_context": formatted_context #,
+                    # "combined_context": combined_context
                 })
 
             return result
@@ -208,61 +195,5 @@ CONTEXT:"""
             n_chroma_results=n_chroma_results,
             n_web_results=n_web_results,
             collection_name=collection_name,
-            include_full_context=False  # Lightweight response
+            include_full_context=True  # Include full context for evaluation
         )
-
-    async def generate_evaluated_chat_response(
-        self,
-        user_query: str,
-        n_chroma_results: int = 5,
-        n_web_results: int = 5,
-        collection_name: str = "product_collection"
-    ) -> Dict[str, Any]:
-        """
-        Generate an answer with quality evaluation.
-        
-        Args:
-            user_query: The question to answer
-            n_chroma_results: Max internal database results to use
-            n_web_results: Max web search results to use
-            collection_name: Database collection to search
-            
-        Returns:
-            Answer with sources, citations, and quality evaluation
-        """
-        try:
-            # Step 1-5: Generate RAG response with full context (for evaluation)
-            rag_response_full = await self._generate_rag_internal(
-                user_query=user_query,
-                n_chroma_results=n_chroma_results,
-                n_web_results=n_web_results,
-                collection_name=collection_name,
-                include_full_context=True  # Need full context for evaluation
-            )
-            
-            # Step 6: Evaluate using the full context
-            logger.info("6️⃣ Evaluating RAG response accuracy...")
-            evaluation = await self.rag_evaluator.evaluate_rag_accuracy(
-                user_query=rag_response_full["user_query"],
-                answer=rag_response_full["response"],
-                formatted_context=rag_response_full["formatted_context"]
-            )
-            
-            logger.info(f"7️⃣ Evaluation completed - Accuracy: {evaluation.get('evaluation', {}).get('accuracy_score', 'N/A')}")
-            
-            # Return lightweight response (no full context objects) + evaluation
-            return {
-                "user_query": rag_response_full["user_query"],
-                "response": rag_response_full["response"],
-                "context_count": rag_response_full["context_count"],
-                "citations": rag_response_full["citations"],  # Lightweight citations only
-                "evaluation": evaluation.get("evaluation", {}),  # Add evaluation results
-                "success": True
-            }
-            
-        except Exception as e:
-            logger.error(f"Error in generate_evaluated_chat_response: {e}")
-            raise RuntimeError(f"RAG+Evaluation failed: {str(e)}") from e
-
-
-

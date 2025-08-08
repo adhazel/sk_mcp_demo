@@ -1,9 +1,5 @@
 """
-MCP server with RAG tools for internal and external search.
-
-This server can be run from either:
-1. The sk_mcp_demo root directory: python mcp_rag/src/mcp_server_product_agent.py
-2. The mcp_rag directory: python src/mcp_server_product_agent.py
+MCP server for searching an internal product database and the external web, with evaluation logic for RAG (Retrieval-Augmented Generation) workflows.
 """
 from mcp.server.fastmcp import FastMCP
 import logging
@@ -17,7 +13,7 @@ import os
 current_dir = Path(__file__).parent
 sys.path.insert(0, str(current_dir))
 
-from utils import mcp_config as config
+from utils import McpConfig
 from utils.event_store import InMemoryEventStore
 from tools.chroma_search import ChromaDBSearcher
 from tools.web_search import WebSearcher
@@ -25,7 +21,7 @@ from tools.rag_generator import RAGResponseGenerator
 from tools.rag_evaluator import RAGEvaluator
 
 # Load environment variables
-config = config.Config(project_name="mcp_rag")
+config = McpConfig(project_name="mcp_rag")
 
 # Configure logging
 logging.basicConfig(level=getattr(logging, config.log_level.upper(), logging.INFO))
@@ -113,11 +109,6 @@ async def debug_event_details(count: int) -> object:
     
     return json.dumps(result, indent=2, default=str)
 
-# @mcp.tool()
-# def resume_from_event_id(last_event_id: str) -> str:
-#     """Manually resume from a specific event ID"""
-#     # Your app can implement custom resumption logic
-
 ##################################################
 # Add business resources, prompts, and tools
 ##################################################
@@ -153,7 +144,7 @@ async def search_external_web(user_query: str, n_results_per_search: int = 2, in
 
     """
     try: 
-        search_results = await web_searcher.search_serpapi_bing_with_generated_queries(
+        search_results = await web_searcher.search_bing_with_chat_and_context(
             user_query=user_query,
             internal_context=internal_context,
             n_results_per_search=n_results_per_search
