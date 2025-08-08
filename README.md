@@ -109,5 +109,3 @@ Run the below. Consider renaming the terminal to "mcp_server".
 Run [notebooks/demo_sk_product_agent.ipynb](notebooks/demo_sk_product_agent.ipynb) to see the agent in action.
 
 Run [mcp_rag/notebooks/demo_rag.ipynb](mcp_rag/notebooks/demo_rag.ipynb) to see the MCP server in action.
-
-
